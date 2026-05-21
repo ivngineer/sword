@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { ListBox } from "@heroui/react";
+import { useUIStore } from "../../store/ui.store";
 import {
   Search,
   Home,
@@ -63,7 +63,12 @@ function NavItem({
 }
 
 export function Sidebar() {
-  const [activeKey, setActiveKey] = useState<string>("search");
+  const { activePanel, setActivePanel } = useUIStore();
+
+  const handleSelect = (keys: Iterable<unknown>) => {
+    const k = [...keys][0];
+    if (k) setActivePanel(String(k));
+  };
 
   return (
     <aside
@@ -73,30 +78,24 @@ export function Sidebar() {
       <ListBox
         aria-label="Navigation"
         selectionMode="single"
-        selectedKeys={new Set([activeKey])}
-        onSelectionChange={(keys) => {
-          const k = [...keys][0];
-          if (k) setActiveKey(String(k));
-        }}
+        selectedKeys={new Set([activePanel])}
+        onSelectionChange={handleSelect}
         className="flex flex-col gap-1 bg-transparent"
       >
         {TOP_ITEMS.map(({ id, label, icon: Icon }) => (
-          <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activeKey === id} />
+          <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
         ))}
       </ListBox>
 
       <ListBox
         aria-label="Bottom navigation"
         selectionMode="single"
-        selectedKeys={new Set([activeKey])}
-        onSelectionChange={(keys) => {
-          const k = [...keys][0];
-          if (k) setActiveKey(String(k));
-        }}
+        selectedKeys={new Set([activePanel])}
+        onSelectionChange={handleSelect}
         className="flex flex-col gap-1 bg-transparent"
       >
         {BOTTOM_ITEMS.map(({ id, label, icon: Icon }) => (
-          <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activeKey === id} />
+          <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
         ))}
       </ListBox>
     </aside>
