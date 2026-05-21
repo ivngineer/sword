@@ -1,6 +1,7 @@
+<img width="2048" height="2048" alt="SwordLogo" src="https://github.com/user-attachments/assets/f26fa5dd-6fe7-479c-a59f-4e61d941bfb4" />
 # Sword
 
-A package manager for Linux. The goal is to make installing and managing software feel as straightforward as it does on any modern desktop OS, without giving up the flexibility of the underlying package ecosystem.
+A package manager for Linux. The goal is to make software management as easy and straightforward as in mobile operating systems. 
 
 Sword thands for "System Wide Open Repository Director".
 
