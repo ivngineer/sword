@@ -23,9 +23,9 @@ Built with Tauri, React, TypeScript, and HeroUI v3.
 
 ## Roadmap
 Near-term priorities:
-- **Go backend** — local HTTP server querying pacman, AUR, and Flatpak, with deduplication and source ranking
-- **Install and remove** — triggered via Tauri IPC, with real-time progress fed back to the UI
-- **App detail view** — full description, version history, source comparison, size breakdown
-- **Installed apps list** — separate view for what's currently on the system
-- **Update queue** — pending updates across all sources in one place
-- **Search and filter** — live search with source and category filters
+- **Go backend** - local HTTP server querying pacman, AUR, and Flatpak, with deduplication and source ranking
+- **Install and remove** - triggered via Tauri IPC, with real-time progress fed back to the UI
+- **App detail view** - full description, version history, source comparison, size breakdown
+- **Installed apps list** - separate view for what's currently on the system
+- **Update queue** - pending updates across all sources in one place
+- **Search and filter** - live search with source and category filters
