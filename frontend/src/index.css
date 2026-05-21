@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* ── Dark theme overrides ── */
+[data-theme="dark"] {
+  --background:         oklch(0.16 0.006 265);
+  --surface:            oklch(0.12 0.006 265);
+  --surface-secondary:  oklch(0.20 0.006 265);
+  --surface-tertiary:   oklch(0.27 0.006 265);
+  --accent:             oklch(0.60 0.22 264);
+  --foreground:         oklch(0.94 0.005 265);
+  --muted:              oklch(0.58 0.010 265);
+}
+
+/* ── Light theme overrides ── */
+[data-theme="light"] {
+  --background:         oklch(0.97 0.004 265);
+  --surface:            oklch(0.91 0.005 265);
+  --surface-secondary:  oklch(0.95 0.004 265);
+  --surface-tertiary:   oklch(1.00 0.000 0);
+  --accent:             oklch(0.52 0.22 264);
+  --foreground:         oklch(0.15 0.010 265);
+  --muted:              oklch(0.48 0.010 265);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
