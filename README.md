@@ -1,14 +1,13 @@
 <div align="center">
   <img src="https://github.com/user-attachments/assets/f26fa5dd-6fe7-479c-a59f-4e61d941bfb4" width="128" alt="Sword Logo" />
 
-  # Sword
+  # sword
 </div>
 
 A package manager for Linux. The goal is to make software management as easy and straightforward as in mobile operating systems.
 
 Sword stands for **System Wide Open Repository Director**.
 
----
 
 ## Status
 The current version covers the main screen frontend:
