@@ -90,6 +90,12 @@ type appDetailOut struct {
 	App  *models.AppEntry `json:"app"`
 }
 
+type popularOut struct {
+	Type    string            `json:"type"`
+	ID      string            `json:"id"`
+	Results []models.AppEntry `json:"results"`
+}
+
 type errorOut struct {
 	Type    string `json:"type"`
 	ID      string `json:"id"`
@@ -141,6 +147,8 @@ func (s *server) run() {
 			go s.handleSearch(msg)
 		case "get_app":
 			go s.handleGetApp(msg)
+		case "get_popular":
+			go s.handleGetPopular(msg)
 		default:
 			s.send(errorOut{Type: "error", ID: msg.ID, Message: "unknown message type: " + msg.Type})
 		}
@@ -188,4 +196,12 @@ func (s *server) handleGetApp(msg inbound) {
 		return
 	}
 	s.send(appDetailOut{Type: "app_detail", ID: msg.ID, App: app})
+}
+
+func (s *server) handleGetPopular(msg inbound) {
+	results := s.index.Popular()
+	if results == nil {
+		results = []models.AppEntry{}
+	}
+	s.send(popularOut{Type: "popular_results", ID: msg.ID, Results: results})
 }

@@ -1,5 +1,5 @@
 import { AppEntry } from "../types/app";
-import { backendSearch, backendGetApp } from "../ipc/backend";
+import { backendSearch, backendGetApp, backendGetPopular } from "../ipc/backend";
 
 export async function fetchApps(query: {
   q?: string;
@@ -18,4 +18,8 @@ export async function fetchApps(query: {
 
 export async function fetchApp(id: string): Promise<AppEntry> {
   return backendGetApp(id);
+}
+
+export async function fetchPopularApps(): Promise<AppEntry[]> {
+  return backendGetPopular();
 }

@@ -4,8 +4,10 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +29,9 @@ type AppIndex struct {
 	buildMu sync.Mutex // serializes concurrent Build calls
 	srcs      []sources.Source
 	resolvers []metadata.AppStreamResolver
+
+	popularMu  sync.RWMutex
+	popularIDs []string // ordered by popularity rank, refreshed with the index
 }
 
 // NewAppIndex returns an empty index. Pass only enumerable sources (pacman,
@@ -88,6 +93,8 @@ func (ix *AppIndex) Build(ctx context.Context) {
 	ix.ordered = ordered
 	ix.mu.Unlock()
 	log.Printf("registry: index built, %d entries", len(ordered))
+
+	go ix.refreshPopular()
 }
 
 // StartAutoRebuild rebuilds the index every interval until ctx is cancelled.
@@ -140,4 +147,62 @@ func (ix *AppIndex) Get(id string) (*models.AppEntry, error) {
 	}
 	cp := *e
 	return &cp, nil
+}
+
+// Popular returns apps from the index ordered by Flathub popularity rank.
+// Apps not present in the index are skipped. Returns nil before the first
+// successful fetch.
+func (ix *AppIndex) Popular() []models.AppEntry {
+	ix.popularMu.RLock()
+	ids := append([]string(nil), ix.popularIDs...)
+	ix.popularMu.RUnlock()
+
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+
+	out := make([]models.AppEntry, 0, len(ids))
+	for _, id := range ids {
+		if e, ok := ix.entries[id]; ok {
+			out = append(out, *e)
+		}
+	}
+	return out
+}
+
+// refreshPopular fetches the Flathub popular-last-month list and caches the
+// top 20 app IDs. Called from Build so it refreshes with the index.
+func (ix *AppIndex) refreshPopular() {
+	const url = "https://flathub.org/api/v2/popular/last-month"
+	resp, err := http.Get(url) //nolint:noctx
+	if err != nil {
+		log.Printf("registry: popular fetch: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Hits []struct {
+			AppID string `json:"app_id"`
+		} `json:"hits"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		log.Printf("registry: popular decode: %v", err)
+		return
+	}
+
+	const limit = 20
+	ids := make([]string, 0, limit)
+	for _, h := range payload.Hits {
+		if len(ids) >= limit {
+			break
+		}
+		if h.AppID != "" {
+			ids = append(ids, strings.ToLower(h.AppID))
+		}
+	}
+
+	ix.popularMu.Lock()
+	ix.popularIDs = ids
+	ix.popularMu.Unlock()
+	log.Printf("registry: popular list cached, %d ids", len(ids))
 }

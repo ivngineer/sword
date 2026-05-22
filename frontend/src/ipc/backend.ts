@@ -6,6 +6,7 @@ import { AppEntry } from "../types/app";
 type Outbound =
   | { type: "search_results"; id: string; phase: SearchPhase; results: AppEntry[] }
   | { type: "app_detail"; id: string; app: AppEntry }
+  | { type: "popular_results"; id: string; results: AppEntry[] }
   | { type: "error"; id: string; message: string };
 
 export type SearchPhase = "local" | "complete";
@@ -42,7 +43,7 @@ function dispatch(line: string) {
     console.error("[backend] non-JSON line:", trimmed);
     return;
   }
-  if (msg.type === "search_results") {
+  if (msg.type === "search_results" || msg.type === "popular_results") {
     for (const r of msg.results) r.iconUrl = normalizeIcon(r.iconUrl);
   } else if (msg.type === "app_detail" && msg.app) {
     msg.app.iconUrl = normalizeIcon(msg.app.iconUrl);
@@ -126,6 +127,21 @@ export async function backendSearch(
       }
     });
     send({ type: "search", id, query });
+  });
+}
+
+// backendGetPopular returns the popular apps list from the index.
+export async function backendGetPopular(): Promise<AppEntry[]> {
+  await ensureStarted();
+  const id = nextId("popular");
+  return new Promise<AppEntry[]>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      pending.delete(id);
+      if (msg.type === "popular_results") resolve(msg.results);
+      else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "get_popular", id });
   });
 }
 
