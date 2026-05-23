@@ -1,13 +1,9 @@
 <div align="center">
   <img src="https://github.com/user-attachments/assets/f26fa5dd-6fe7-479c-a59f-4e61d941bfb4" width="128" alt="Sword Logo" />
-
-  # sword
+  <h1>sword</h1>
+  <p>A package manager for Linux. The goal is to make software management as easy and straightforward as in mobile operating systems.</p>
+  <p>Sword stands for <strong>System Wide Open Repository Director</strong>.</p>
 </div>
-
-A package manager for Linux. The goal is to make software management as easy and straightforward as in mobile operating systems.
-
-Sword stands for **System Wide Open Repository Director**.
-
 
 ## Status
 Currently the app is WIP (work in progress) and comes with no promises. 
