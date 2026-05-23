@@ -1,14 +1,30 @@
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@heroui/react";
 import { AppCard } from "../ui/AppCard";
 import { fetchPopularApps } from "../../api/apps";
 
+const MAX_POPULAR_POLLS = 12; // 12 × 5s = 60s, covers 20-40s index build + refreshPopular
+
 export function AppGrid() {
+  const pollCount = useRef(0);
+
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ["popular"],
-    queryFn: fetchPopularApps,
+    queryFn: async () => {
+      pollCount.current += 1;
+      return fetchPopularApps();
+    },
     staleTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => {
+      const apps = query.state.data ?? [];
+      const hasResults = apps.length > 0;
+      const allHaveIcons = hasResults && apps.every((a) => a.iconUrl);
+      if (allHaveIcons) return false;
+      if (pollCount.current >= MAX_POPULAR_POLLS) return false;
+      return 5_000;
+    },
   });
 
   if (isLoading) {

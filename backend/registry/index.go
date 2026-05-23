@@ -30,8 +30,9 @@ type AppIndex struct {
 	srcs      []sources.Source
 	resolvers []metadata.AppStreamResolver
 
-	popularMu  sync.RWMutex
-	popularIDs []string // ordered by popularity rank, refreshed with the index
+	popularMu   sync.RWMutex
+	popularIDs  []string          // ordered by popularity rank, refreshed with the index
+	popularIcons map[string]string // appID -> icon URL from the popular API response
 }
 
 // NewAppIndex returns an empty index. Pass only enumerable sources (pacman,
@@ -155,6 +156,7 @@ func (ix *AppIndex) Get(id string) (*models.AppEntry, error) {
 func (ix *AppIndex) Popular() []models.AppEntry {
 	ix.popularMu.RLock()
 	ids := append([]string(nil), ix.popularIDs...)
+	icons := ix.popularIcons
 	ix.popularMu.RUnlock()
 
 	ix.mu.RLock()
@@ -163,7 +165,11 @@ func (ix *AppIndex) Popular() []models.AppEntry {
 	out := make([]models.AppEntry, 0, len(ids))
 	for _, id := range ids {
 		if e, ok := ix.entries[id]; ok {
-			out = append(out, *e)
+			cp := *e
+			if cp.IconURL == "" {
+				cp.IconURL = icons[id]
+			}
+			out = append(out, cp)
 		}
 	}
 	return out
@@ -172,7 +178,7 @@ func (ix *AppIndex) Popular() []models.AppEntry {
 // refreshPopular fetches the Flathub popular-last-month list and caches the
 // top 20 app IDs. Called from Build so it refreshes with the index.
 func (ix *AppIndex) refreshPopular() {
-	const url = "https://flathub.org/api/v2/popular/last-month"
+	const url = "https://flathub.org/api/v2/collection/popular"
 	resp, err := http.Get(url) //nolint:noctx
 	if err != nil {
 		log.Printf("registry: popular fetch: %v", err)
@@ -183,6 +189,7 @@ func (ix *AppIndex) refreshPopular() {
 	var payload struct {
 		Hits []struct {
 			AppID string `json:"app_id"`
+			Icon  string `json:"icon"`
 		} `json:"hits"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -192,17 +199,23 @@ func (ix *AppIndex) refreshPopular() {
 
 	const limit = 20
 	ids := make([]string, 0, limit)
+	icons := make(map[string]string, limit)
 	for _, h := range payload.Hits {
 		if len(ids) >= limit {
 			break
 		}
 		if h.AppID != "" {
-			ids = append(ids, strings.ToLower(h.AppID))
+			key := strings.ToLower(h.AppID)
+			ids = append(ids, key)
+			if h.Icon != "" {
+				icons[key] = h.Icon
+			}
 		}
 	}
 
 	ix.popularMu.Lock()
 	ix.popularIDs = ids
+	ix.popularIcons = icons
 	ix.popularMu.Unlock()
 	log.Printf("registry: popular list cached, %d ids", len(ids))
 }
