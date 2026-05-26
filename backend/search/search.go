@@ -46,6 +46,10 @@ func (o *Orchestrator) Complete(ctx context.Context, query string) []models.AppE
 	}
 	merged := o.mergeAUR(local, aurPkgs)
 	apps := limit(scoreApps(Score(query, merged)))
+	snap := o.index.Installed()
+	for i := range apps {
+		registry.ApplyInstalled(&apps[i], snap)
+	}
 	o.enrichIcons(apps)
 	return apps
 }

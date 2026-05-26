@@ -19,6 +19,23 @@ Here's what works:
 - Multi-source unification: one entry per app, best source pre-selected, manual override available
 - Dark and light theme with live switching
 
+## Dependencies
+Runtime tools Sword shells out to. Missing ones degrade gracefully (that source is skipped, no crash).
+
+| Tool | Package | Purpose |
+| --- | --- | --- |
+| `expac` | `expac` | Query Arch sync databases for pacman search results. Without it, **no pacman packages appear**. |
+| `pacman` | `pacman` | Detect installed native and AUR (foreign) packages via `-Qqn` / `-Qqm`. Preinstalled on Arch. |
+| `flatpak` | `flatpak` | List Flathub apps and detect installed flatpaks. Without it, the Flatpak source is disabled. |
+| `pkexec` | `polkit` | Elevate privileges for `pacman -S` installs. |
+
+Install everything in one go:
+```sh
+sudo pacman -S expac flatpak polkit
+```
+
+The AUR source uses the AUR RPC over HTTPS — no local helper required.
+
 ## Roadmap
 Near-term priorities:
 - **Install and remove**: one-click package management functionality

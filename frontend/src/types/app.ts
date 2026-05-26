@@ -5,7 +5,10 @@ export type AppSource = {
   version: string;
   sizeBytes: number;
   isRecommended: boolean;
+  installed: boolean;
 };
+
+export type AppStatus = "available" | "installed";
 
 export type AppEntry = {
   id: string;
@@ -13,5 +16,6 @@ export type AppEntry = {
   publisher: string;
   description: string;
   iconUrl: string;
+  status: AppStatus;
   sources: AppSource[];
 };

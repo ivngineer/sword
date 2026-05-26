@@ -14,6 +14,7 @@ import (
 
 	"github.com/sahilm/fuzzy"
 
+	"sword/backend/installed"
 	"sword/backend/metadata"
 	"sword/backend/models"
 	"sword/backend/sources"
@@ -30,9 +31,13 @@ type AppIndex struct {
 	srcs      []sources.Source
 	resolvers []metadata.AppStreamResolver
 
+	installedMu sync.RWMutex
+	installed   installed.Snapshot
+
 	popularMu   sync.RWMutex
-	popularIDs  []string          // ordered by popularity rank, refreshed with the index
-	popularIcons map[string]string // appID -> icon URL from the popular API response
+	popularIDs       []string          // ordered by popularity rank, refreshed with the index
+	popularIcons     map[string]string // appID -> icon URL from the popular API response
+	popularSummaries map[string]string // appID -> summary from the popular API response
 }
 
 // NewAppIndex returns an empty index. Pass only enumerable sources (pacman,
@@ -42,7 +47,15 @@ func NewAppIndex(srcs []sources.Source, resolvers []metadata.AppStreamResolver) 
 		entries:   map[string]*models.AppEntry{},
 		srcs:      srcs,
 		resolvers: resolvers,
+		installed: installed.Empty(),
 	}
+}
+
+// Installed returns the latest installed snapshot. Safe for concurrent use.
+func (ix *AppIndex) Installed() installed.Snapshot {
+	ix.installedMu.RLock()
+	defer ix.installedMu.RUnlock()
+	return ix.installed
 }
 
 // Build queries every source, enriches packages with AppStream ids, merges
@@ -51,6 +64,11 @@ func NewAppIndex(srcs []sources.Source, resolvers []metadata.AppStreamResolver) 
 func (ix *AppIndex) Build(ctx context.Context) {
 	ix.buildMu.Lock()
 	defer ix.buildMu.Unlock()
+
+	snap := installed.Load(ctx)
+	ix.installedMu.Lock()
+	ix.installed = snap
+	ix.installedMu.Unlock()
 
 	var all []models.SourcePackage
 	for _, s := range ix.srcs {
@@ -85,6 +103,7 @@ func (ix *AppIndex) Build(ctx context.Context) {
 		if e == nil {
 			continue
 		}
+		ApplyInstalled(e, snap)
 		entries[e.ID] = e
 		ordered = append(ordered, e)
 	}
@@ -157,6 +176,7 @@ func (ix *AppIndex) Popular() []models.AppEntry {
 	ix.popularMu.RLock()
 	ids := append([]string(nil), ix.popularIDs...)
 	icons := ix.popularIcons
+	summaries := ix.popularSummaries
 	ix.popularMu.RUnlock()
 
 	ix.mu.RLock()
@@ -168,6 +188,9 @@ func (ix *AppIndex) Popular() []models.AppEntry {
 			cp := *e
 			if cp.IconURL == "" {
 				cp.IconURL = icons[id]
+			}
+			if cp.Description == "" {
+				cp.Description = summaries[id]
 			}
 			out = append(out, cp)
 		}
@@ -188,8 +211,9 @@ func (ix *AppIndex) refreshPopular() {
 
 	var payload struct {
 		Hits []struct {
-			AppID string `json:"app_id"`
-			Icon  string `json:"icon"`
+			AppID   string `json:"app_id"`
+			Icon    string `json:"icon"`
+			Summary string `json:"summary"`
 		} `json:"hits"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -200,6 +224,7 @@ func (ix *AppIndex) refreshPopular() {
 	const limit = 20
 	ids := make([]string, 0, limit)
 	icons := make(map[string]string, limit)
+	summaries := make(map[string]string, limit)
 	for _, h := range payload.Hits {
 		if len(ids) >= limit {
 			break
@@ -210,12 +235,16 @@ func (ix *AppIndex) refreshPopular() {
 			if h.Icon != "" {
 				icons[key] = h.Icon
 			}
+			if h.Summary != "" {
+				summaries[key] = h.Summary
+			}
 		}
 	}
 
 	ix.popularMu.Lock()
 	ix.popularIDs = ids
 	ix.popularIcons = icons
+	ix.popularSummaries = summaries
 	ix.popularMu.Unlock()
 	log.Printf("registry: popular list cached, %d ids", len(ids))
 }

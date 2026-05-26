@@ -5,6 +5,7 @@ import { SourceSwitcher } from "./SourceSwitcher";
 
 export function AppCard({ entry }: { entry: AppEntry }) {
   const [imgError, setImgError] = useState(false);
+  const installed = entry.status === "installed";
 
   return (
     <div
@@ -54,13 +55,15 @@ export function AppCard({ entry }: { entry: AppEntry }) {
         <Button
           variant="secondary"
           size="sm"
+          isDisabled={installed}
           className="rounded-full px-5 shrink-0 ml-auto"
           style={{
-            backgroundColor: "#3b82f6",
+            backgroundColor: installed ? "#6b7280" : "#3b82f6",
             color: "#ffffff",
+            opacity: installed ? 0.6 : 1,
           }}
         >
-          Get
+          {installed ? "Installed" : "Get"}
         </Button>
       </div>
     </div>

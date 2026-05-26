@@ -9,7 +9,7 @@ const MAX_POPULAR_POLLS = 12; // 12 × 5s = 60s, covers 20-40s index build + ref
 export function AppGrid() {
   const pollCount = useRef(0);
 
-  const { data: apps = [], isLoading } = useQuery({
+  const { data: apps = [], isLoading, isFetching } = useQuery({
     queryKey: ["popular"],
     queryFn: async () => {
       pollCount.current += 1;
@@ -27,7 +27,9 @@ export function AppGrid() {
     },
   });
 
-  if (isLoading) {
+  const stillPolling = isFetching || pollCount.current < MAX_POPULAR_POLLS;
+
+  if (isLoading || (apps.length === 0 && stillPolling)) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (

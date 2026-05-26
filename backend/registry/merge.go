@@ -3,6 +3,7 @@ package registry
 import (
 	"strings"
 
+	"sword/backend/installed"
 	"sword/backend/metadata"
 	"sword/backend/models"
 )
@@ -102,7 +103,27 @@ func Merge(pkgs []models.SourcePackage, resolvers []metadata.AppStreamResolver) 
 		e.ID = strings.ToLower(e.Name)
 	}
 	SetRecommended(e)
+	e.Status = models.StatusAvailable
 	return e
+}
+
+// ApplyInstalled stamps Installed on every matching source and flips the
+// entry status to "installed" when any source is installed. Safe to call
+// multiple times.
+func ApplyInstalled(e *models.AppEntry, snap installed.Snapshot) {
+	any := false
+	for i := range e.Sources {
+		hit := snap.Has(e.Sources[i].Type, e.Sources[i].PackageName)
+		e.Sources[i].Installed = hit
+		if hit {
+			any = true
+		}
+	}
+	if any {
+		e.Status = models.StatusInstalled
+	} else if e.Status == "" {
+		e.Status = models.StatusAvailable
+	}
 }
 
 // SetRecommended flags exactly one source as recommended, picking the best by

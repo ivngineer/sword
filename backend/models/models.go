@@ -25,7 +25,14 @@ type AppSource struct {
 	Version       string `json:"version"`
 	SizeBytes     int64  `json:"sizeBytes"`
 	IsRecommended bool   `json:"isRecommended"`
+	Installed     bool   `json:"installed"`
 }
+
+// Status values for AppEntry.Status.
+const (
+	StatusAvailable = "available"
+	StatusInstalled = "installed"
+)
 
 // AppEntry is a deduplicated application, possibly backed by several sources.
 // Field names match the frontend AppEntry type exactly.
@@ -35,6 +42,7 @@ type AppEntry struct {
 	Publisher   string      `json:"publisher"`
 	Description string      `json:"description"`
 	IconURL     string      `json:"iconUrl"`
+	Status      string      `json:"status"`
 	Sources     []AppSource `json:"sources"`
 	// AppStreamID is internal bookkeeping for dedup/icon resolution; the
 	// frontend ignores it.
