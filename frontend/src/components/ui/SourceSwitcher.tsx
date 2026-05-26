@@ -1,18 +1,21 @@
 import { Select, ListBox } from "@heroui/react";
-import { AppEntry } from "../../types/app";
-import { useAppSources } from "../../hooks/useAppSources";
+import { AppSource } from "../../types/app";
 
-export function SourceSwitcher({ entry }: { entry: AppEntry }) {
-  const { activeSource, allSources, setSource } = useAppSources(entry);
+type Props = {
+  sources: AppSource[];
+  value: AppSource;
+  onChange: (sourceId: string) => void;
+};
 
-  if (allSources.length <= 1) return null;
+export function SourceSwitcher({ sources, value, onChange }: Props) {
+  if (sources.length === 0) return null;
 
   return (
     <Select
       variant="secondary"
-      selectedKey={activeSource.id}
+      selectedKey={value.id}
       onSelectionChange={(key) => {
-        if (key != null) setSource(String(key));
+        if (key != null) onChange(String(key));
       }}
       className="min-w-0 flex-1"
       aria-label="Select source"
@@ -23,7 +26,7 @@ export function SourceSwitcher({ entry }: { entry: AppEntry }) {
       </Select.Trigger>
       <Select.Popover>
         <ListBox aria-label="Sources">
-          {allSources.map((src) => (
+          {sources.map((src) => (
             <ListBox.Item
               key={src.id}
               id={src.id}

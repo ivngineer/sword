@@ -91,15 +91,58 @@ func (ix *AppIndex) Build(ctx context.Context) {
 	}
 
 	groups := map[string][]models.SourcePackage{}
+	groupOrder := make([]string, 0)
 	for _, p := range all {
 		k := DedupKey(p)
+		if _, exists := groups[k]; !exists {
+			groupOrder = append(groupOrder, k)
+		}
 		groups[k] = append(groups[k], p)
 	}
 
+	// Second-pass fold: groups sharing a normalized display name collapse
+	// into one. AppStream-keyed groups win as the canonical bucket so that
+	// e.g. pacman "steam" folds into the flatpak "Steam" entry instead of
+	// remaining a separate card.
+	byName := map[string]string{}            // normalized name -> canonical group key
+	folded := map[string][]models.SourcePackage{}
+	foldedOrder := make([]string, 0, len(groupOrder))
+	for _, k := range groupOrder {
+		g := groups[k]
+		nameKey := ""
+		for _, p := range g {
+			if n := normalizeName(p.DisplayName); n != "" {
+				nameKey = n
+				break
+			}
+		}
+		isAS := strings.HasPrefix(k, "as:")
+		if nameKey != "" {
+			if canon, ok := byName[nameKey]; ok {
+				folded[canon] = append(folded[canon], g...)
+				if isAS && !strings.HasPrefix(canon, "as:") {
+					folded[k] = folded[canon]
+					delete(folded, canon)
+					for i, kk := range foldedOrder {
+						if kk == canon {
+							foldedOrder[i] = k
+							break
+						}
+					}
+					byName[nameKey] = k
+				}
+				continue
+			}
+			byName[nameKey] = k
+		}
+		folded[k] = append(folded[k], g...)
+		foldedOrder = append(foldedOrder, k)
+	}
+
 	entries := map[string]*models.AppEntry{}
-	ordered := make([]*models.AppEntry, 0, len(groups))
-	for _, g := range groups {
-		e := Merge(g, ix.resolvers)
+	ordered := make([]*models.AppEntry, 0, len(foldedOrder))
+	for _, k := range foldedOrder {
+		e := Merge(folded[k], ix.resolvers)
 		if e == nil {
 			continue
 		}

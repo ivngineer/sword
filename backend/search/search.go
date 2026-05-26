@@ -71,27 +71,58 @@ func (o *Orchestrator) enrichIcons(apps []models.AppEntry) {
 	}
 }
 
+// normalizePkgName strips common AUR variant suffixes and lowercases,
+// so "vlc-bin" and "vlc" resolve to the same stem.
+func normalizePkgName(name string) string {
+	lower := strings.ToLower(name)
+	for _, sfx := range []string{"-bin", "-git", "-svn", "-hg", "-bzr", "-appimage", "-nightly", "-stable", "-latest"} {
+		if strings.HasSuffix(lower, sfx) {
+			return lower[:len(lower)-len(sfx)]
+		}
+	}
+	return lower
+}
+
 func (o *Orchestrator) mergeAUR(apps []models.AppEntry, aurPkgs []models.SourcePackage) []models.AppEntry {
 	byKey := map[string]int{}
 	for i := range apps {
-		byKey[entryKey(apps[i])] = i
+		if apps[i].AppStreamID != "" {
+			byKey[strings.ToLower(apps[i].AppStreamID)] = i
+		}
+		byKey[registry.NormalizeName(apps[i].Name)] = i
 	}
 	for _, p := range aurPkgs {
-		k := strings.ToLower(p.DisplayName)
-		if i, ok := byKey[k]; ok {
-			apps[i].Sources = append(apps[i].Sources, models.AppSource{
+		candidates := []string{
+			registry.NormalizeName(p.DisplayName),
+			normalizePkgName(p.ID),
+		}
+		idx := -1
+		for _, k := range candidates {
+			if k == "" {
+				continue
+			}
+			if i, ok := byKey[k]; ok {
+				idx = i
+				break
+			}
+		}
+		if idx >= 0 {
+			apps[idx].Sources = append(apps[idx].Sources, models.AppSource{
 				ID:          "aur:" + p.ID,
 				Type:        "aur",
 				PackageName: p.ID,
 				Version:     p.Version,
 				SizeBytes:   p.SizeBytes,
 			})
-			registry.SetRecommended(&apps[i])
+			registry.SetRecommended(&apps[idx])
 			continue
 		}
 		if e := registry.Merge([]models.SourcePackage{p}, o.resolvers); e != nil {
 			apps = append(apps, *e)
-			byKey[entryKey(*e)] = len(apps) - 1
+			byKey[registry.NormalizeName(e.Name)] = len(apps) - 1
+			if e.AppStreamID != "" {
+				byKey[strings.ToLower(e.AppStreamID)] = len(apps) - 1
+			}
 		}
 	}
 	return apps

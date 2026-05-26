@@ -8,13 +8,22 @@ import (
 	"sword/backend/models"
 )
 
+// NormalizeName lowercases, strips trademark symbols, and collapses whitespace.
+func NormalizeName(s string) string { return normalizeName(s) }
+
+func normalizeName(s string) string {
+	s = strings.ToLower(s)
+	s = strings.NewReplacer("™", "", "®", "", "©", "").Replace(s)
+	return strings.TrimSpace(strings.Join(strings.Fields(s), " "))
+}
+
 // DedupKey returns the canonical grouping key for a package: its AppStream id
-// when available, otherwise its lowercased display name.
+// when available, otherwise its normalized display name.
 func DedupKey(p models.SourcePackage) string {
 	if p.AppStreamID != "" {
 		return "as:" + strings.ToLower(p.AppStreamID)
 	}
-	return "nm:" + strings.ToLower(p.DisplayName)
+	return "nm:" + normalizeName(p.DisplayName)
 }
 
 // authority ranks sources for picking canonical metadata: AppStream feeds win

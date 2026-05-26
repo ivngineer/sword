@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Button } from "@heroui/react";
 import { AppEntry } from "../../types/app";
 import { SourceSwitcher } from "./SourceSwitcher";
+import { useAppSources } from "../../hooks/useAppSources";
 
 export function AppCard({ entry }: { entry: AppEntry }) {
   const [imgError, setImgError] = useState(false);
+  const { activeSource, allSources, setSource } = useAppSources(entry);
   const installed = entry.status === "installed";
 
   return (
@@ -48,10 +50,12 @@ export function AppCard({ entry }: { entry: AppEntry }) {
 
       {/* Bottom row: source dropdown starts under icon, Get button at end */}
       <div className="flex items-center gap-3">
-        {entry.sources.length > 1 && (
-          <div className="w-[100px] shrink-0" />
-        )}
-        {entry.sources.length > 1 && <SourceSwitcher entry={entry} />}
+        <div className="w-[100px] shrink-0" />
+        <SourceSwitcher
+          sources={allSources}
+          value={activeSource}
+          onChange={setSource}
+        />
         <Button
           variant="secondary"
           size="sm"
