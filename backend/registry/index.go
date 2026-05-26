@@ -217,15 +217,30 @@ func (ix *AppIndex) Search(query string) []models.IndexEntry {
 	return out
 }
 
-// Get returns a copy of the entry with the given canonical id.
+// Get returns a copy of the entry with the given canonical id. Falls back to
+// the Flathub popular-list icon/summary when the index entry lacks them, so
+// detail screens get the same enriched fields as the popular grid.
 func (ix *AppIndex) Get(id string) (*models.AppEntry, error) {
+	key := strings.ToLower(id)
+
 	ix.mu.RLock()
-	defer ix.mu.RUnlock()
-	e, ok := ix.entries[strings.ToLower(id)]
+	e, ok := ix.entries[key]
 	if !ok {
+		ix.mu.RUnlock()
 		return nil, fmt.Errorf("app not found: %s", id)
 	}
 	cp := *e
+	ix.mu.RUnlock()
+
+	ix.popularMu.RLock()
+	if cp.IconURL == "" {
+		cp.IconURL = ix.popularIcons[key]
+	}
+	if cp.Description == "" {
+		cp.Description = ix.popularSummaries[key]
+	}
+	ix.popularMu.RUnlock()
+
 	return &cp, nil
 }
 

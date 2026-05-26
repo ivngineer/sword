@@ -37,7 +37,11 @@ export function AppScreen() {
   // Prefer the fresh entry once it arrives, but keep snapshot screenshots if
   // the fresh entry lacks them (e.g. backend index not yet rebuilt).
   const entry: AppEntry = fresh
-    ? { ...fresh, screenshots: fresh.screenshots ?? snapshot.screenshots }
+    ? {
+        ...fresh,
+        iconUrl: fresh.iconUrl || snapshot.iconUrl,
+        screenshots: fresh.screenshots ?? snapshot.screenshots,
+      }
     : snapshot;
 
   return <AppScreenContent entry={entry} onBack={closeApp} />;
