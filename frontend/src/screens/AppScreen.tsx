@@ -10,10 +10,13 @@ import { formatBytes } from "../lib/format";
 import { AppEntry } from "../types/app";
 import { tokens } from "../theme/tokens";
 
+const EXIT_MS = 200;
+
 export function AppScreen() {
   const snapshot = useUIStore((s) => s.activeAppEntry);
   const id = useUIStore((s) => s.activeAppId);
   const closeApp = useUIStore((s) => s.closeApp);
+  const [exiting, setExiting] = useState(false);
 
   // Snapshot renders immediately; a background fetch enriches with screenshots
   // and any field missing from the partial entry that came through search.
@@ -25,13 +28,24 @@ export function AppScreen() {
     refetchOnWindowFocus: false,
   });
 
+  // Reset exit state whenever a new app opens.
+  useEffect(() => {
+    setExiting(false);
+  }, [id]);
+
+  const beginClose = () => {
+    if (exiting) return;
+    setExiting(true);
+    window.setTimeout(closeApp, EXIT_MS);
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeApp();
+      if (e.key === "Escape") beginClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [closeApp]);
+  });
 
   if (!snapshot) return null;
   // Prefer the fresh entry once it arrives, but keep snapshot screenshots if
@@ -44,10 +58,18 @@ export function AppScreen() {
       }
     : snapshot;
 
-  return <AppScreenContent entry={entry} onBack={closeApp} />;
+  return <AppScreenContent entry={entry} onBack={beginClose} exiting={exiting} />;
 }
 
-function AppScreenContent({ entry, onBack }: { entry: AppEntry; onBack: () => void }) {
+function AppScreenContent({
+  entry,
+  onBack,
+  exiting,
+}: {
+  entry: AppEntry;
+  onBack: () => void;
+  exiting: boolean;
+}) {
   const { activeSource, allSources, setSource } = useAppSources(entry);
   const qc = useQueryClient();
   const [busy, setBusy] = useState<null | "install" | "remove">(null);
@@ -90,19 +112,27 @@ function AppScreenContent({ entry, onBack }: { entry: AppEntry; onBack: () => vo
 
   return (
     <div
-      className="flex flex-col w-full h-full overflow-y-auto"
+      key={entry.id}
+      className={`${exiting ? "app-screen-exit" : "app-screen-enter"} flex flex-col w-full h-full overflow-y-auto`}
       style={{ padding: tokens.spacing.outer }}
     >
       {/* Back */}
       <div className="mb-5">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm rounded-lg px-3 py-2"
-          style={{ color: "var(--muted)", backgroundColor: "var(--surface-secondary)" }}
+        <Button
+          onPress={onBack}
+          size="sm"
+          variant="tertiary"
+          className="text-sm rounded-lg"
+          style={{
+            backgroundColor: "var(--surface-tertiary)",
+            color: "var(--foreground)",
+          }}
         >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+          <span className="inline-flex items-center gap-2">
+            <ArrowLeft size={16} />
+            Back
+          </span>
+        </Button>
       </div>
 
       {/* Header */}
