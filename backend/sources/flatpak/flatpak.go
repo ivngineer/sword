@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"sword/backend/models"
+	"sword/backend/sources/proc"
 )
 
 const sourceName = "flatpak"
@@ -72,9 +73,16 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 	return models.SourcePackage{}, errors.New("flatpak: package not found: " + id)
 }
 
-// Install installs a flatpak app from flathub.
+// Install installs a flatpak app from flathub. System-level installs trigger a
+// polkit prompt; --user installs do not. We prefer --user so the action
+// completes without auth where possible.
 func (s *Source) Install(ctx context.Context, id string) error {
-	return exec.CommandContext(ctx, "flatpak", "install", "-y", "flathub", id).Run()
+	return proc.RunDetached(ctx, "flatpak", "install", "-y", "--user", "flathub", id)
+}
+
+// Remove uninstalls a flatpak app from the user installation.
+func (s *Source) Remove(ctx context.Context, id string) error {
+	return proc.RunDetached(ctx, "flatpak", "uninstall", "-y", "--user", id)
 }
 
 func parse(b []byte) []models.SourcePackage {

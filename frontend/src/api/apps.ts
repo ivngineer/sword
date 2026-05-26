@@ -1,5 +1,11 @@
-import { AppEntry } from "../types/app";
-import { backendSearch, backendGetApp, backendGetPopular } from "../ipc/backend";
+import { AppEntry, AppSource } from "../types/app";
+import {
+  backendSearch,
+  backendGetApp,
+  backendGetPopular,
+  backendInstall,
+  backendRemove,
+} from "../ipc/backend";
 
 export async function fetchApps(query: {
   q?: string;
@@ -22,4 +28,12 @@ export async function fetchApp(id: string): Promise<AppEntry> {
 
 export async function fetchPopularApps(): Promise<AppEntry[]> {
   return backendGetPopular();
+}
+
+export async function installApp(source: AppSource): Promise<void> {
+  return backendInstall(source.type, source.packageName);
+}
+
+export async function removeApp(source: AppSource): Promise<void> {
+  return backendRemove(source.type, source.packageName);
 }

@@ -5,6 +5,7 @@ import { PlaceholderPanel } from "./PlaceholderPanel";
 import { AboutScreen } from "./AboutScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { SearchScreen } from "./SearchScreen";
+import { AppScreen } from "./AppScreen";
 import { useUIStore } from "../store/ui.store";
 
 function HomePanel() {
@@ -18,15 +19,19 @@ function HomePanel() {
 
 export function MainScreen() {
   const { activePanel } = useUIStore();
+  const activeAppId = useUIStore((s) => s.activeAppId);
+  const showApp = !!activeAppId;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar />
       <main
-        className={`flex flex-1 flex-col overflow-y-auto ${activePanel === "search" ? "" : "p-6"}`}
+        className={`flex flex-1 flex-col overflow-y-auto ${showApp || activePanel === "search" ? "" : "p-6"}`}
         style={{ backgroundColor: "var(--background)" }}
       >
-        {activePanel === "home" ? (
+        {showApp ? (
+          <AppScreen />
+        ) : activePanel === "home" ? (
           <HomePanel />
         ) : activePanel === "search" ? (
           <SearchScreen />

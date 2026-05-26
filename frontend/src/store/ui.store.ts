@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { AppEntry } from "../types/app";
 
 type UIStore = {
   theme: "dark" | "light";
@@ -11,12 +12,16 @@ type UIStore = {
   setUpdatesAvailable: (pkgs: string[]) => void;
   currentInstall: string | null;
   setCurrentInstall: (pkg: string | null) => void;
+  activeAppId: string | null;
+  activeAppEntry: AppEntry | null;
+  viewApp: (entry: AppEntry) => void;
+  closeApp: () => void;
 };
 
 export const useUIStore = create<UIStore>((set, get) => ({
   theme: "dark",
   activePanel: "home",
-  setActivePanel: (panel) => set({ activePanel: panel }),
+  setActivePanel: (panel) => set({ activePanel: panel, activeAppId: null, activeAppEntry: null }),
   toggleTheme: () => {
     const next = get().theme === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
@@ -30,4 +35,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setUpdatesAvailable: (pkgs) => set({ updatesAvailable: pkgs }),
   currentInstall: null,
   setCurrentInstall: (pkg) => set({ currentInstall: pkg }),
+  activeAppId: null,
+  activeAppEntry: null,
+  viewApp: (entry) => set({ activeAppId: entry.id, activeAppEntry: entry }),
+  closeApp: () => set({ activeAppId: null, activeAppEntry: null }),
 }));

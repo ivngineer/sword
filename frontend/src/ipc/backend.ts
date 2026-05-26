@@ -7,6 +7,8 @@ type Outbound =
   | { type: "search_results"; id: string; phase: SearchPhase; results: AppEntry[] }
   | { type: "app_detail"; id: string; app: AppEntry }
   | { type: "popular_results"; id: string; results: AppEntry[] }
+  | { type: "install_result"; id: string; ok: boolean }
+  | { type: "remove_result"; id: string; ok: boolean }
   | { type: "error"; id: string; message: string };
 
 export type SearchPhase = "local" | "complete";
@@ -142,6 +144,37 @@ export async function backendGetPopular(): Promise<AppEntry[]> {
       else reject(new Error("unexpected backend response"));
     });
     send({ type: "get_popular", id });
+  });
+}
+
+// backendInstall runs install for one package via the named source. Resolves
+// when the backend finishes the action; rejects on backend error.
+export async function backendInstall(sourceType: string, packageName: string): Promise<void> {
+  await ensureStarted();
+  const id = nextId("install");
+  return new Promise<void>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      pending.delete(id);
+      if (msg.type === "install_result") resolve();
+      else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "install", id, source_type: sourceType, package_name: packageName });
+  });
+}
+
+// backendRemove uninstalls one package via the named source.
+export async function backendRemove(sourceType: string, packageName: string): Promise<void> {
+  await ensureStarted();
+  const id = nextId("remove");
+  return new Promise<void>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      pending.delete(id);
+      if (msg.type === "remove_result") resolve();
+      else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "remove", id, source_type: sourceType, package_name: packageName });
   });
 }
 

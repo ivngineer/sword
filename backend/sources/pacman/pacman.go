@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"sword/backend/models"
+	"sword/backend/sources/proc"
 )
 
 const sourceName = "pacman"
@@ -67,9 +68,15 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 	return pkgs[0], nil
 }
 
-// Install installs a package via pkexec + pacman.
+// Install installs a package via pkexec + pacman. Runs detached so pkexec
+// routes auth through the session polkit agent instead of /dev/tty.
 func (s *Source) Install(ctx context.Context, id string) error {
-	return exec.CommandContext(ctx, "pkexec", "pacman", "-S", "--noconfirm", id).Run()
+	return proc.RunDetached(ctx, "pkexec", "pacman", "-S", "--noconfirm", id)
+}
+
+// Remove uninstalls a package via pkexec + pacman.
+func (s *Source) Remove(ctx context.Context, id string) error {
+	return proc.RunDetached(ctx, "pkexec", "pacman", "-Rs", "--noconfirm", id)
 }
 
 func parse(b []byte) []models.SourcePackage {

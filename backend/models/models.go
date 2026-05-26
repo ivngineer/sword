@@ -44,6 +44,7 @@ type AppEntry struct {
 	IconURL     string      `json:"iconUrl"`
 	Status      string      `json:"status"`
 	Sources     []AppSource `json:"sources"`
+	Screenshots []string    `json:"screenshots,omitempty"`
 	// AppStreamID is internal bookkeeping for dedup/icon resolution; the
 	// frontend ignores it.
 	AppStreamID string `json:"appStreamId,omitempty"`

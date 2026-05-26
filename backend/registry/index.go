@@ -58,6 +58,23 @@ func (ix *AppIndex) Installed() installed.Snapshot {
 	return ix.installed
 }
 
+// RefreshInstalled re-queries the installed snapshot and re-stamps every
+// entry's per-source installed flag + overall status. Much cheaper than a
+// full Build — useful right after an install/remove action so the next Get
+// returns the new state without waiting for the heavier rebuild.
+func (ix *AppIndex) RefreshInstalled(ctx context.Context) {
+	snap := installed.Load(ctx)
+	ix.installedMu.Lock()
+	ix.installed = snap
+	ix.installedMu.Unlock()
+
+	ix.mu.Lock()
+	for _, e := range ix.ordered {
+		ApplyInstalled(e, snap)
+	}
+	ix.mu.Unlock()
+}
+
 // Build queries every source, enriches packages with AppStream ids, merges
 // duplicates and atomically swaps in the new index. A failing source is
 // logged and skipped.

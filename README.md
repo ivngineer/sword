@@ -36,6 +36,31 @@ sudo pacman -S expac flatpak polkit
 
 The AUR source uses the AUR RPC over HTTPS — no local helper required.
 
+### Install / remove caveats
+
+- **A graphical polkit agent must be running** for pacman installs. Most desktop
+  environments (GNOME, KDE, Xfce, LXQt, MATE) ship one and autostart it. On
+  minimal window managers (i3, sway, dwm, etc.) install one — for example
+  `polkit-gnome` — and ensure it autostarts with your session:
+  ```sh
+  sudo pacman -S polkit-gnome
+  # then in your WM autostart:
+  /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+  ```
+  Sword will try to spawn an agent itself if it finds one of the common
+  binaries on PATH and none is running, but only as a fallback.
+- **Flatpak installs are per-user** (`flatpak install --user`). This avoids a
+  polkit prompt entirely; the trade-off is that flatpaks installed via Sword
+  won't be visible to other users.
+- **AUR installs require `paru` or `yay`** on PATH. The helper's internal
+  `sudo` call may still want a TTY when invoked from a GUI; if you hit an
+  AUR install failure, configure `SUDO_ASKPASS` (e.g. point it at
+  `ksshaskpass` or `lxqt-openssh-askpass`) so sudo can prompt graphically.
+- **No custom auth dialog yet.** The password prompt is rendered by your
+  desktop's polkit agent, not by Sword. A native, theme-matching auth dialog
+  would require implementing the polkit `AuthenticationAgent` D-Bus
+  interface — on the roadmap, not in this release.
+
 ## Roadmap
 Near-term priorities:
 - **Install and remove**: one-click package management functionality

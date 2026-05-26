@@ -20,4 +20,6 @@ type Source interface {
 	Get(ctx context.Context, id string) (models.SourcePackage, error)
 	// Install installs a package by its source-local id.
 	Install(ctx context.Context, id string) error
+	// Remove uninstalls a package by its source-local id.
+	Remove(ctx context.Context, id string) error
 }

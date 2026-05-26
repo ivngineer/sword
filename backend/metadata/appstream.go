@@ -16,13 +16,14 @@ import (
 
 // AppStreamRecord is the subset of AppStream metadata Sword needs.
 type AppStreamRecord struct {
-	ID        string
-	Name      string
-	Summary   string
-	Developer string
-	License   string
-	PkgName   string
-	IconURL   string
+	ID          string
+	Name        string
+	Summary     string
+	Developer   string
+	License     string
+	PkgName     string
+	IconURL     string
+	Screenshots []string
 }
 
 // AppStreamResolver looks up a record by an AppStream component id (or, as a
@@ -50,6 +51,16 @@ type xmlIcon struct {
 	Value string `xml:",chardata"`
 }
 
+type xmlImage struct {
+	Type  string `xml:"type,attr"`
+	Value string `xml:",chardata"`
+}
+
+type xmlScreenshot struct {
+	Type   string     `xml:"type,attr"`
+	Images []xmlImage `xml:"image"`
+}
+
 type xmlComponent struct {
 	Type           string    `xml:"type,attr"`
 	ID             string    `xml:"id"`
@@ -60,8 +71,9 @@ type xmlComponent struct {
 	Developer      struct {
 		Name string `xml:"name"`
 	} `xml:"developer"`
-	ProjectLicense string    `xml:"project_license"`
-	Icons          []xmlIcon `xml:"icon"`
+	ProjectLicense string          `xml:"project_license"`
+	Icons          []xmlIcon       `xml:"icon"`
+	Screenshots    []xmlScreenshot `xml:"screenshots>screenshot"`
 }
 
 type xmlComponents struct {
@@ -86,13 +98,54 @@ func recordFromComponent(c xmlComponent) *AppStreamRecord {
 		dev = strings.TrimSpace(c.Developer.Name)
 	}
 	return &AppStreamRecord{
-		ID:        strings.TrimSpace(c.ID),
-		Name:      defaultLang(c.Names),
-		Summary:   defaultLang(c.Summaries),
-		Developer: dev,
-		License:   strings.TrimSpace(c.ProjectLicense),
-		PkgName:   strings.TrimSpace(c.PkgName),
+		ID:          strings.TrimSpace(c.ID),
+		Name:        defaultLang(c.Names),
+		Summary:     defaultLang(c.Summaries),
+		Developer:   dev,
+		License:     strings.TrimSpace(c.ProjectLicense),
+		PkgName:     strings.TrimSpace(c.PkgName),
+		Screenshots: screenshotsFromComponent(c),
 	}
+}
+
+// screenshotsFromComponent extracts screenshot URLs in catalog order. Prefer
+// the "source" (full-res) image; fall back to "thumbnail" when none is given.
+// Default screenshot (Type="default") sorts to the front so the first image
+// shown matches what app stores feature.
+func screenshotsFromComponent(c xmlComponent) []string {
+	if len(c.Screenshots) == 0 {
+		return nil
+	}
+	pick := func(s xmlScreenshot) string {
+		var thumb string
+		for _, img := range s.Images {
+			v := strings.TrimSpace(img.Value)
+			if v == "" {
+				continue
+			}
+			if img.Type == "source" {
+				return v
+			}
+			if thumb == "" && img.Type == "thumbnail" {
+				thumb = v
+			}
+		}
+		return thumb
+	}
+	out := make([]string, 0, len(c.Screenshots))
+	var rest []string
+	for _, s := range c.Screenshots {
+		u := pick(s)
+		if u == "" {
+			continue
+		}
+		if s.Type == "default" {
+			out = append(out, u)
+		} else {
+			rest = append(rest, u)
+		}
+	}
+	return append(out, rest...)
 }
 
 func indexRecord(m map[string]*AppStreamRecord, rec *AppStreamRecord) {

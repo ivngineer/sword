@@ -18,4 +18,5 @@ export type AppEntry = {
   iconUrl: string;
   status: AppStatus;
   sources: AppSource[];
+  screenshots?: string[];
 };

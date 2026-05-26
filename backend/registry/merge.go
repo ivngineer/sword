@@ -100,6 +100,9 @@ func Merge(pkgs []models.SourcePackage, resolvers []metadata.AppStreamResolver) 
 		if e.AppStreamID == "" {
 			e.AppStreamID = rec.ID
 		}
+		if len(rec.Screenshots) > 0 {
+			e.Screenshots = append([]string(nil), rec.Screenshots...)
+		}
 	}
 	e.IconURL = metadata.ResolveIcon(resolvers, e.AppStreamID, pkgName, pkgs[0].ID)
 

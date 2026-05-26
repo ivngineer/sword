@@ -7,9 +7,11 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"time"
 
 	"sword/backend/models"
+	"sword/backend/sources/proc"
 )
 
 const (
@@ -71,9 +73,33 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 	return pkgs[0], nil
 }
 
-// Install is unsupported: AUR packages need a build helper.
+// Install builds and installs an AUR package using paru or yay. Detached so
+// the helper's pacman invocation routes its sudo/polkit prompt through the
+// session auth agent rather than /dev/tty.
 func (s *Source) Install(ctx context.Context, id string) error {
-	return errors.New("aur: install requires an AUR helper; not supported")
+	helper, err := findHelper()
+	if err != nil {
+		return err
+	}
+	return proc.RunDetached(ctx, helper, "-S", "--noconfirm", id)
+}
+
+// Remove uninstalls an AUR-installed package using paru or yay.
+func (s *Source) Remove(ctx context.Context, id string) error {
+	helper, err := findHelper()
+	if err != nil {
+		return err
+	}
+	return proc.RunDetached(ctx, helper, "-Rs", "--noconfirm", id)
+}
+
+func findHelper() (string, error) {
+	for _, h := range []string{"paru", "yay"} {
+		if p, err := exec.LookPath(h); err == nil {
+			return p, nil
+		}
+	}
+	return "", errors.New("aur: no AUR helper found (install paru or yay)")
 }
 
 func (s *Source) fetch(ctx context.Context, u string) (*rpcResponse, error) {
