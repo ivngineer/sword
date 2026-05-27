@@ -43,7 +43,7 @@ Runtime tools Sword shells out to. Missing ones degrade gracefully (that source 
 
 Install everything in one go:
 
-'''sudo pacman -S expac flatpak polkit'''
+sudo pacman -S expac flatpak polkit
 
 
 ## Install and remove notes
