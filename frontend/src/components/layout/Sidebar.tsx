@@ -142,8 +142,8 @@ function ActiveProgress() {
         size="sm"
         color="accent"
       >
-        <ProgressBar.Track>
-          <ProgressBar.Fill />
+        <ProgressBar.Track className="h-1.5 rounded-sm">
+          <ProgressBar.Fill className="rounded-sm" />
         </ProgressBar.Track>
       </ProgressBar>
       {job.status && (
