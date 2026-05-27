@@ -6,8 +6,8 @@
 </div>
 
 <div align="center">
-  <img width="49%" src="https://github.com/user-attachments/assets/832c1e77-fb4e-4bc5-b77d-6aaf7c26b724" alt="2026-05-23_12-33-11" />
-  <img width="49%" src="https://github.com/user-attachments/assets/6ac72f31-9077-47be-93f3-d8918e8cd6b3" alt="2026-05-23_12-33-43" />
+  <img width="49%" src="https://github.com/user-attachments/assets/960c0d7d-4d9a-4f7a-9dc9-0fce5c3bc134" alt="2026-05-23_12-33-11" />
+  <img width="49%" src="https://github.com/user-attachments/assets/4074662d-baf8-4918-b4b4-957a4f066216" alt="2026-05-23_12-33-11" />
 </div>
 
 ## Status
