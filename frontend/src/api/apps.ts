@@ -3,6 +3,7 @@ import {
   backendSearch,
   backendGetApp,
   backendGetPopular,
+  backendListInstalled,
   backendInstall,
   backendRemove,
 } from "../ipc/backend";
@@ -29,6 +30,10 @@ export async function fetchApp(id: string): Promise<AppEntry> {
 
 export async function fetchPopularApps(): Promise<AppEntry[]> {
   return backendGetPopular();
+}
+
+export async function fetchInstalledApps(): Promise<AppEntry[]> {
+  return backendListInstalled();
 }
 
 export async function installApp(source: AppSource, appName: string): Promise<void> {

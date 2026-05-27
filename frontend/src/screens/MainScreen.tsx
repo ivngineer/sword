@@ -5,6 +5,7 @@ import { PlaceholderPanel } from "./PlaceholderPanel";
 import { AboutScreen } from "./AboutScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { SearchScreen } from "./SearchScreen";
+import { InstalledScreen } from "./InstalledScreen";
 import { AppScreen } from "./AppScreen";
 import { useUIStore } from "../store/ui.store";
 
@@ -43,6 +44,8 @@ export function MainScreen() {
           <AppScreen />
         ) : activePanel === "home" ? (
           <HomePanel />
+        ) : activePanel === "installed" ? (
+          <InstalledScreen />
         ) : activePanel === "about" ? (
           <AboutScreen />
         ) : activePanel === "settings" ? (

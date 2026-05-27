@@ -71,6 +71,26 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 	return pkgs[0], nil
 }
 
+// LocalQuery returns metadata for already-installed packages by name, reading
+// the local pacman DB (`expac -Q`). Useful for surfacing AUR-installed
+// packages that do not appear in any sync repo. Unknown names are silently
+// dropped. Empty input returns nil.
+func (s *Source) LocalQuery(ctx context.Context, names []string) ([]models.SourcePackage, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	if !s.Available() {
+		return nil, errors.New("pacman: expac not installed")
+	}
+	args := append([]string{"-Q", `%n\t%v\t%d\t%m`}, names...)
+	cmd := exec.CommandContext(ctx, "expac", args...)
+	out, err := cmd.Output()
+	if err != nil && len(out) == 0 {
+		return nil, nil
+	}
+	return parse(out), nil
+}
+
 // Install installs a package via pkexec + pacman. Runs detached so pkexec
 // routes auth through the session polkit agent instead of /dev/tty.
 func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {

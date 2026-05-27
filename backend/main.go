@@ -73,7 +73,7 @@ func main() {
 		fp.Name():  fp,
 		au.Name():  au,
 	}
-	newServer(orch, index, srcMap).run()
+	newServer(orch, index, srcMap, pac.LocalQuery).run()
 }
 
 // --- IPC protocol types ----------------------------------------------------
@@ -106,6 +106,12 @@ type popularOut struct {
 	Results []models.AppEntry `json:"results"`
 }
 
+type installedOut struct {
+	Type    string            `json:"type"`
+	ID      string            `json:"id"`
+	Results []models.AppEntry `json:"results"`
+}
+
 type errorOut struct {
 	Type    string `json:"type"`
 	ID      string `json:"id"`
@@ -133,9 +139,10 @@ type progressOut struct {
 // --- server ----------------------------------------------------------------
 
 type server struct {
-	orch  *search.Orchestrator
-	index *registry.AppIndex
-	srcs  map[string]sources.Source
+	orch          *search.Orchestrator
+	index         *registry.AppIndex
+	srcs          map[string]sources.Source
+	localPacQuery registry.LocalPkgQuery
 
 	encMu sync.Mutex
 	enc   *json.Encoder
@@ -144,8 +151,8 @@ type server struct {
 	cancel context.CancelFunc
 }
 
-func newServer(orch *search.Orchestrator, index *registry.AppIndex, srcs map[string]sources.Source) *server {
-	return &server{orch: orch, index: index, srcs: srcs, enc: json.NewEncoder(os.Stdout)}
+func newServer(orch *search.Orchestrator, index *registry.AppIndex, srcs map[string]sources.Source, localPacQuery registry.LocalPkgQuery) *server {
+	return &server{orch: orch, index: index, srcs: srcs, localPacQuery: localPacQuery, enc: json.NewEncoder(os.Stdout)}
 }
 
 // send writes one JSON message followed by a newline. Encoder access is
@@ -178,6 +185,8 @@ func (s *server) run() {
 			go s.handleGetApp(msg)
 		case "get_popular":
 			go s.handleGetPopular(msg)
+		case "list_installed":
+			go s.handleListInstalled(msg)
 		case "install":
 			go s.handleAction(msg, true)
 		case "remove":
@@ -276,4 +285,12 @@ func (s *server) handleGetPopular(msg inbound) {
 		results = []models.AppEntry{}
 	}
 	s.send(popularOut{Type: "popular_results", ID: msg.ID, Results: results})
+}
+
+func (s *server) handleListInstalled(msg inbound) {
+	results := s.index.InstalledApps(context.Background(), s.localPacQuery)
+	if results == nil {
+		results = []models.AppEntry{}
+	}
+	s.send(installedOut{Type: "installed_results", ID: msg.ID, Results: results})
 }

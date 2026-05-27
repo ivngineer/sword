@@ -105,6 +105,7 @@ function AppScreenContent({
       setBusy(null);
       qc.invalidateQueries({ queryKey: ["app", entry.id] });
       qc.invalidateQueries({ queryKey: ["popular"] });
+      qc.invalidateQueries({ queryKey: ["installed"] });
     },
   });
 

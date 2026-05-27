@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,11 @@ import (
 	"sword/backend/models"
 	"sword/backend/sources"
 )
+
+// LocalPkgQuery returns metadata for installed packages by name. The pacman
+// source supplies this; passed in so the registry stays decoupled from any
+// specific source package.
+type LocalPkgQuery func(ctx context.Context, names []string) ([]models.SourcePackage, error)
 
 // AppIndex is the in-memory, deduplicated catalog. It is safe for concurrent
 // use and is rebuilt periodically in the background.
@@ -177,6 +183,135 @@ func (ix *AppIndex) Build(ctx context.Context) {
 	go ix.refreshPopular()
 }
 
+// InstalledApps returns every installed application as a flat, alphabetically
+// sorted list. Pacman-native and Flatpak entries come from the index (so they
+// carry resolved icons and merged metadata). AUR-foreign packages absent from
+// the index are filled in via localPacQuery on the local pacman DB. Pass nil
+// for localPacQuery to skip AUR augmentation.
+func (ix *AppIndex) InstalledApps(ctx context.Context, localPacQuery LocalPkgQuery) []models.AppEntry {
+	// Only packages that ship a desktop entry — drops libs, daemons, helpers.
+	// Flatpaks bypass the filter (every flatpak app is user-facing by design).
+	// The same scan also feeds icon resolution: parsing each .desktop's Icon=
+	// field is the only way to find icons for apps whose desktop file / icon
+	// name doesn't match their package name (e.g. gnome-terminal → org.gnome.Terminal).
+	desktops := installed.ScanDesktops(ctx)
+	desktopIcons := installed.ResolveIcons(desktops)
+
+	ix.mu.RLock()
+	out := make([]models.AppEntry, 0)
+	covered := map[string]struct{}{} // "type:packageName" already in result
+	for _, e := range ix.ordered {
+		if e.Status != models.StatusInstalled {
+			continue
+		}
+		if !entryIsUserFacing(e, desktops) {
+			continue
+		}
+		cp := *e
+		out = append(out, cp)
+		for _, s := range e.Sources {
+			if s.Installed {
+				covered[s.Type+":"+s.PackageName] = struct{}{}
+			}
+		}
+	}
+	ix.mu.RUnlock()
+
+	// Icon/summary fallback from the popular cache, matching Get/Popular.
+	ix.popularMu.RLock()
+	icons := ix.popularIcons
+	summaries := ix.popularSummaries
+	ix.popularMu.RUnlock()
+	for i := range out {
+		if out[i].IconURL == "" {
+			out[i].IconURL = icons[out[i].ID]
+		}
+		if out[i].IconURL == "" {
+			// Last resort: walk the entry's pacman/AUR sources and try the
+			// .desktop-derived icon map. Catches everything not in AppStream.
+			for _, s := range out[i].Sources {
+				if !s.Installed || s.Type == "flatpak" {
+					continue
+				}
+				if u := desktopIcons[s.PackageName]; u != "" {
+					out[i].IconURL = u
+					break
+				}
+			}
+		}
+		if out[i].Description == "" {
+			out[i].Description = summaries[out[i].ID]
+		}
+	}
+
+	// AUR-only: foreign pacman names not already represented.
+	snap := ix.Installed()
+	missing := make([]string, 0, len(snap.AUR))
+	for name := range snap.AUR {
+		if _, ok := covered["aur:"+name]; ok {
+			continue
+		}
+		if _, ok := covered["pacman:"+name]; ok {
+			continue
+		}
+		if !desktops.Owns(name) {
+			continue
+		}
+		missing = append(missing, name)
+	}
+	if len(missing) > 0 && localPacQuery != nil {
+		pkgs, err := localPacQuery(ctx, missing)
+		if err != nil {
+			log.Printf("registry: installed AUR query: %v", err)
+		}
+		for _, p := range pkgs {
+			e := models.AppEntry{
+				ID:          strings.ToLower(p.ID),
+				Name:        p.DisplayName,
+				Description: p.Description,
+				Status:      models.StatusInstalled,
+				Sources: []models.AppSource{{
+					ID:            "aur:" + p.ID,
+					Type:          "aur",
+					PackageName:   p.ID,
+					Version:       p.Version,
+					SizeBytes:     p.SizeBytes,
+					IsRecommended: true,
+					Installed:     true,
+				}},
+			}
+			if rec := metadata.Resolve(ix.resolvers, p.ID); rec != nil {
+				if rec.Name != "" {
+					e.Name = rec.Name
+				}
+				if rec.Summary != "" {
+					e.Description = rec.Summary
+				}
+				if rec.Developer != "" {
+					e.Publisher = rec.Developer
+				}
+				if rec.ID != "" {
+					e.AppStreamID = rec.ID
+					e.ID = strings.ToLower(rec.ID)
+				}
+				if len(rec.Screenshots) > 0 {
+					e.Screenshots = append([]string(nil), rec.Screenshots...)
+				}
+			}
+			e.IconURL = metadata.ResolveIcon(ix.resolvers, e.AppStreamID, p.ID)
+			if e.IconURL == "" {
+				e.IconURL = desktopIcons[p.ID]
+			}
+			out = append(out, e)
+		}
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	})
+	return out
+}
+
 // StartAutoRebuild rebuilds the index every interval until ctx is cancelled.
 func (ix *AppIndex) StartAutoRebuild(ctx context.Context, interval time.Duration) {
 	go func() {
@@ -322,4 +457,23 @@ func (ix *AppIndex) refreshPopular() {
 	ix.popularSummaries = summaries
 	ix.popularMu.Unlock()
 	log.Printf("registry: popular list cached, %d ids", len(ids))
+}
+
+// entryIsUserFacing reports whether an installed entry should appear on the
+// Installed screen. Flatpaks always pass. Pacman/AUR entries must own a
+// .desktop file (signalling a GUI or terminal-launchable app rather than a
+// library/daemon).
+func entryIsUserFacing(e *models.AppEntry, desktops installed.Desktops) bool {
+	for _, s := range e.Sources {
+		if !s.Installed {
+			continue
+		}
+		if s.Type == "flatpak" {
+			return true
+		}
+		if desktops.Owns(s.PackageName) {
+			return true
+		}
+	}
+	return false
 }
