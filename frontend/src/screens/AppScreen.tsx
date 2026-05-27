@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@heroui/react";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -109,6 +110,7 @@ function AppScreenContent({
 
   const screenshots = entry.screenshots ?? [];
   const sizeLabel = formatBytes(activeSource.sizeBytes);
+  const [lightbox, setLightbox] = useState<{ src: string; rect: DOMRect } | null>(null);
 
   return (
     <div
@@ -174,7 +176,7 @@ function AppScreenContent({
 
       {/* Screenshots */}
       {screenshots.length > 0 && (
-        <div className="mt-8 -mx-6 px-6 overflow-x-auto">
+        <div className="mt-8 -mx-6 px-6 overflow-x-auto shot-scroll">
           <div className="flex flex-row gap-3">
             {screenshots.map((src, i) => (
               <img
@@ -183,7 +185,10 @@ function AppScreenContent({
                 alt={`${entry.name} screenshot ${i + 1}`}
                 loading="lazy"
                 draggable={false}
-                className="rounded-xl shrink-0 object-cover"
+                onClick={(e) =>
+                  setLightbox({ src, rect: e.currentTarget.getBoundingClientRect() })
+                }
+                className="rounded-xl shrink-0 object-cover cursor-pointer"
                 style={{
                   width: 360,
                   height: 220,
@@ -193,6 +198,14 @@ function AppScreenContent({
             ))}
           </div>
         </div>
+      )}
+
+      {lightbox && (
+        <Lightbox
+          src={lightbox.src}
+          fromRect={lightbox.rect}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
       {/* Description */}
@@ -274,6 +287,110 @@ function ActionButton({
         {label}
       </span>
     </Button>
+  );
+}
+
+function Lightbox({
+  src,
+  fromRect,
+  onClose,
+}: {
+  src: string;
+  fromRect: DOMRect;
+  onClose: () => void;
+}) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
+
+  const computeDelta = (target: DOMRect) => {
+    const dx = fromRect.left + fromRect.width / 2 - (target.left + target.width / 2);
+    const dy = fromRect.top + fromRect.height / 2 - (target.top + target.height / 2);
+    const sx = fromRect.width / target.width;
+    const sy = fromRect.height / target.height;
+    return { dx, dy, sx, sy };
+  };
+
+  const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    const img = imgRef.current;
+    const backdrop = backdropRef.current;
+    if (!img || !backdrop) {
+      onClose();
+      return;
+    }
+    const { dx, dy, sx, sy } = computeDelta(img.getBoundingClientRect());
+    const a = img.animate(
+      [
+        { transform: "translate(0,0) scale(1,1)" },
+        { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+      ],
+      { duration: 220, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "both" },
+    );
+    backdrop.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 220,
+      easing: "cubic-bezier(0.4, 0, 1, 1)",
+      fill: "both",
+    });
+    a.onfinish = onClose;
+  };
+
+  useEffect(() => {
+    const img = imgRef.current;
+    const backdrop = backdropRef.current;
+    if (!img || !backdrop) return;
+    const run = () => {
+      const { dx, dy, sx, sy } = computeDelta(img.getBoundingClientRect());
+      img.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+          { transform: "translate(0,0) scale(1,1)" },
+        ],
+        { duration: 280, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "both" },
+      );
+      backdrop.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: 280,
+        easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+        fill: "both",
+      });
+    };
+    if (img.complete && img.naturalWidth > 0) run();
+    else img.addEventListener("load", run, { once: true });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        close();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  });
+
+  return createPortal(
+    <div
+      ref={backdropRef}
+      onClick={close}
+      className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer"
+      style={{ backgroundColor: "rgba(0,0,0,0.72)", padding: 32 }}
+    >
+      <img
+        ref={imgRef}
+        src={src}
+        draggable={false}
+        className="rounded-xl object-contain"
+        style={{
+          maxWidth: "100%",
+          maxHeight: "100%",
+          transformOrigin: "center center",
+          willChange: "transform",
+        }}
+      />
+    </div>,
+    document.body,
   );
 }
 

@@ -60,3 +60,36 @@ html, body, #root {
   .app-screen-enter,
   .app-screen-exit { animation: none; }
 }
+
+/* Custom horizontal scrollbar for screenshot strip. */
+.shot-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-tertiary) transparent;
+  padding-bottom: 28px;
+  scrollbar-gutter: stable;
+}
+.shot-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.shot-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin-inline: 24px;
+}
+.shot-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--surface-tertiary);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.shot-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+  background-clip: padding-box;
+}
+[data-theme="dark"] .shot-scroll::-webkit-scrollbar-thumb:active {
+  background-color: oklch(0.82 0.005 265);
+  background-clip: padding-box;
+}
+[data-theme="light"] .shot-scroll::-webkit-scrollbar-thumb:active {
+  background-color: oklch(0.30 0.010 265);
+  background-clip: padding-box;
+}
