@@ -10,7 +10,7 @@
   <img width="49%" src="https://github.com/user-attachments/assets/6ac72f31-9077-47be-93f3-d8918e8cd6b3" alt="2026-05-23_12-33-43" />
 </div>
 
-Status
+## Status
 
 Currently the app is WIP (work in progress) and comes with no promises.
 Here’s what works:
@@ -23,12 +23,12 @@ Here’s what works:
 	•	Install and remove packages (may be unstable)
 	•	App detail view with size, sources, and screenshots
 
-Known issues:
+## Known issues:
 
 	•	Flatpak installs sometimes don’t work
 	•	Some icons in menus fail to render - expected to be fixed soon
 
-Dependencies
+## Dependencies
 
 Runtime tools Sword shells out to. Missing ones degrade gracefully (that source is skipped, no crash).
 
@@ -46,7 +46,7 @@ Install everything in one go:
 sudo pacman -S expac flatpak polkit
 
 
-Install and remove notes
+## Install and remove notes
 
 	•	Pacman installs use pkexec and your desktop’s polkit agent for authentication. The default agent is hyprpolkit. A custom built-in auth dialog is planned for a future release.
 	•	Flatpak installs are per-user (flatpak install --user) - no password prompt needed, but installed apps won’t be visible to other users.
@@ -54,7 +54,7 @@ Install and remove notes
 
 Roadmap
 
-Near-term priorities:
+## Near-term priorities:
 
 	•	Installed apps list: separate view for what’s currently on the system
 	•	Update queue: pending updates across all sources in one place (including system packages!)
