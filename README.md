@@ -43,7 +43,7 @@ Runtime tools Sword shells out to. Missing ones degrade gracefully (that source 
 
 Install everything in one go:
 
-sudo pacman -S expac flatpak polkit
+'''sudo pacman -S expac flatpak polkit'''
 
 
 ## Install and remove notes
@@ -52,7 +52,6 @@ sudo pacman -S expac flatpak polkit
 - Flatpak installs are per-user (flatpak install --user) - no password prompt needed, but installed apps won't be visible to other users.
 - AUR installs require paru or yay on PATH. If AUR installs fail, set SUDO_ASKPASS to a graphical sudo prompt like ksshaskpass so sudo doesn't need a terminal.
 
-Roadmap
 
 ## Near-term priorities:
 
