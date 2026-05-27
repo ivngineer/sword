@@ -6,6 +6,7 @@ import {
   backendInstall,
   backendRemove,
 } from "../ipc/backend";
+import { useProgressStore } from "../store/progress.store";
 
 export async function fetchApps(query: {
   q?: string;
@@ -30,10 +31,31 @@ export async function fetchPopularApps(): Promise<AppEntry[]> {
   return backendGetPopular();
 }
 
-export async function installApp(source: AppSource): Promise<void> {
-  return backendInstall(source.type, source.packageName);
+export async function installApp(source: AppSource, appName: string): Promise<void> {
+  return runAction("install", source, appName);
 }
 
-export async function removeApp(source: AppSource): Promise<void> {
-  return backendRemove(source.type, source.packageName);
+export async function removeApp(source: AppSource, appName: string): Promise<void> {
+  return runAction("remove", source, appName);
+}
+
+// runAction wires a backend install/remove into the global progress store so
+// the sidebar bar reflects whatever's currently happening regardless of which
+// screen kicked it off.
+async function runAction(
+  kind: "install" | "remove",
+  source: AppSource,
+  appName: string,
+): Promise<void> {
+  const { start, update, finish } = useProgressStore.getState();
+  const fn = kind === "install" ? backendInstall : backendRemove;
+  const { id, done } = await fn(source.type, source.packageName, ({ fraction, status }) => {
+    update(id, fraction, status);
+  });
+  start({ id, kind, appName });
+  try {
+    await done;
+  } finally {
+    finish(id);
+  }
 }

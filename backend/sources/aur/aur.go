@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"sword/backend/models"
+	"sword/backend/sources"
 	"sword/backend/sources/proc"
 )
+
+var _ sources.Source = (*Source)(nil)
 
 const (
 	sourceName = "aur"
@@ -76,21 +79,28 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 // Install builds and installs an AUR package using paru or yay. Detached so
 // the helper's pacman invocation routes its sudo/polkit prompt through the
 // session auth agent rather than /dev/tty.
-func (s *Source) Install(ctx context.Context, id string) error {
+func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {
 	helper, err := findHelper()
 	if err != nil {
 		return err
 	}
-	return proc.RunDetached(ctx, helper, "-S", "--noconfirm", id)
+	return proc.RunStreaming(ctx, lineFn(onProgress), helper, "-S", "--noconfirm", id)
 }
 
 // Remove uninstalls an AUR-installed package using paru or yay.
-func (s *Source) Remove(ctx context.Context, id string) error {
+func (s *Source) Remove(ctx context.Context, id string, onProgress sources.ProgressFn) error {
 	helper, err := findHelper()
 	if err != nil {
 		return err
 	}
-	return proc.RunDetached(ctx, helper, "-Rs", "--noconfirm", id)
+	return proc.RunStreaming(ctx, lineFn(onProgress), helper, "-Rs", "--noconfirm", id)
+}
+
+func lineFn(onProgress sources.ProgressFn) func(string) {
+	return func(line string) {
+		frac, status := proc.ParseProgress(line)
+		onProgress(frac, status)
+	}
 }
 
 func findHelper() (string, error) {

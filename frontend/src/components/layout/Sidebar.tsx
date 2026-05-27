@@ -1,5 +1,6 @@
-import { ListBox } from "@heroui/react";
+import { ListBox, ProgressBar } from "@heroui/react";
 import { useUIStore } from "../../store/ui.store";
+import { useProgressStore, activeJob } from "../../store/progress.store";
 import {
   Search,
   Home,
@@ -87,17 +88,73 @@ export function Sidebar() {
         ))}
       </ListBox>
 
-      <ListBox
-        aria-label="Bottom navigation"
-        selectionMode="single"
-        selectedKeys={new Set([activePanel])}
-        onSelectionChange={handleSelect}
-        className="flex flex-col gap-1 bg-transparent"
-      >
-        {BOTTOM_ITEMS.map(({ id, label, icon: Icon }) => (
-          <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
-        ))}
-      </ListBox>
+      <div className="flex flex-col gap-2">
+        <ActiveProgress />
+        <ListBox
+          aria-label="Bottom navigation"
+          selectionMode="single"
+          selectedKeys={new Set([activePanel])}
+          onSelectionChange={handleSelect}
+          className="flex flex-col gap-1 bg-transparent"
+        >
+          {BOTTOM_ITEMS.map(({ id, label, icon: Icon }) => (
+            <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
+          ))}
+        </ListBox>
+      </div>
     </aside>
+  );
+}
+
+// ActiveProgress renders a thin progress bar above the bottom nav whenever
+// any install/remove is in flight. Switches between an accurate determinate
+// bar and an indeterminate one based on what the backend can parse out of
+// the tool's output.
+function ActiveProgress() {
+  const job = useProgressStore((s) => activeJob(s.jobs));
+  if (!job) return null;
+  const verb = job.kind === "install" ? "Installing" : "Removing";
+  const pct =
+    job.fraction == null ? null : Math.max(0, Math.min(100, Math.round(job.fraction * 100)));
+  return (
+    <div
+      className="mx-1 rounded-xl py-[10px] px-3 flex flex-col gap-2 select-none"
+      style={{ backgroundColor: "var(--surface-secondary)" }}
+    >
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span
+          className="truncate"
+          style={{ color: "var(--foreground)" }}
+          title={`${verb} ${job.appName}`}
+        >
+          {verb} {job.appName}
+        </span>
+        {pct != null && (
+          <span className="tabular-nums text-xs" style={{ color: "var(--muted)" }}>
+            {pct}%
+          </span>
+        )}
+      </div>
+      <ProgressBar
+        aria-label={`${verb} ${job.appName}`}
+        value={pct ?? undefined}
+        isIndeterminate={pct == null}
+        size="sm"
+        color="accent"
+      >
+        <ProgressBar.Track>
+          <ProgressBar.Fill />
+        </ProgressBar.Track>
+      </ProgressBar>
+      {job.status && (
+        <span
+          className="truncate text-xs"
+          style={{ color: "var(--muted)" }}
+          title={job.status}
+        >
+          {job.status}
+        </span>
+      )}
+    </div>
   );
 }

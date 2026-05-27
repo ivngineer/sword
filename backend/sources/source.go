@@ -9,6 +9,15 @@ import (
 	"sword/backend/models"
 )
 
+// ProgressFn receives parsed progress updates from a long-running action.
+// fraction is in [0,1] when known, or negative for indeterminate ticks.
+// status is a short human-readable description of the current step.
+type ProgressFn func(fraction float64, status string)
+
+// NopProgress is a ProgressFn that discards updates. Use when a caller does
+// not care about progress.
+func NopProgress(float64, string) {}
+
 // Source is implemented by every package source (pacman, aur, flatpak, ...).
 type Source interface {
 	// Name returns the stable source identifier ("pacman", "aur", "flatpak").
@@ -18,8 +27,11 @@ type Source interface {
 	Search(ctx context.Context, query string) ([]models.SourcePackage, error)
 	// Get returns a single package by its source-local id.
 	Get(ctx context.Context, id string) (models.SourcePackage, error)
-	// Install installs a package by its source-local id.
-	Install(ctx context.Context, id string) error
-	// Remove uninstalls a package by its source-local id.
-	Remove(ctx context.Context, id string) error
+	// Install installs a package by its source-local id. onProgress is
+	// called as the underlying tool reports progress; never nil — pass
+	// NopProgress when uninterested.
+	Install(ctx context.Context, id string, onProgress ProgressFn) error
+	// Remove uninstalls a package by its source-local id. onProgress is
+	// called as the underlying tool reports progress; never nil.
+	Remove(ctx context.Context, id string, onProgress ProgressFn) error
 }

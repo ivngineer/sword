@@ -78,8 +78,8 @@ function AppScreenContent({
   const installed = activeSource.installed;
   const mutate = useMutation({
     mutationFn: async (action: "install" | "remove") => {
-      if (action === "install") await installApp(activeSource);
-      else await removeApp(activeSource);
+      if (action === "install") await installApp(activeSource, entry.name);
+      else await removeApp(activeSource, entry.name);
     },
     onMutate: (action) => setBusy(action),
     onSuccess: (_data, action) => {

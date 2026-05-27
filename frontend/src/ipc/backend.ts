@@ -9,7 +9,11 @@ type Outbound =
   | { type: "popular_results"; id: string; results: AppEntry[] }
   | { type: "install_result"; id: string; ok: boolean }
   | { type: "remove_result"; id: string; ok: boolean }
+  | { type: "progress"; id: string; fraction: number; status: string }
   | { type: "error"; id: string; message: string };
+
+export type ProgressUpdate = { fraction: number | null; status: string };
+export type OnProgress = (update: ProgressUpdate) => void;
 
 export type SearchPhase = "local" | "complete";
 
@@ -147,13 +151,23 @@ export async function backendGetPopular(): Promise<AppEntry[]> {
   });
 }
 
-// backendInstall runs install for one package via the named source. Resolves
-// when the backend finishes the action; rejects on backend error.
-export async function backendInstall(sourceType: string, packageName: string): Promise<void> {
+// backendInstall runs install for one package via the named source. onProgress
+// fires on every progress update from the backend; the returned id is the
+// stable IPC id used to identify this job in stores. Resolves when the backend
+// finishes the action; rejects on backend error.
+export async function backendInstall(
+  sourceType: string,
+  packageName: string,
+  onProgress?: OnProgress,
+): Promise<{ id: string; done: Promise<void> }> {
   await ensureStarted();
   const id = nextId("install");
-  return new Promise<void>((resolve, reject) => {
+  const done = new Promise<void>((resolve, reject) => {
     pending.set(id, (msg) => {
+      if (msg.type === "progress") {
+        onProgress?.({ fraction: msg.fraction < 0 ? null : msg.fraction, status: msg.status });
+        return;
+      }
       pending.delete(id);
       if (msg.type === "install_result") resolve();
       else if (msg.type === "error") reject(new Error(msg.message));
@@ -161,14 +175,23 @@ export async function backendInstall(sourceType: string, packageName: string): P
     });
     send({ type: "install", id, source_type: sourceType, package_name: packageName });
   });
+  return { id, done };
 }
 
 // backendRemove uninstalls one package via the named source.
-export async function backendRemove(sourceType: string, packageName: string): Promise<void> {
+export async function backendRemove(
+  sourceType: string,
+  packageName: string,
+  onProgress?: OnProgress,
+): Promise<{ id: string; done: Promise<void> }> {
   await ensureStarted();
   const id = nextId("remove");
-  return new Promise<void>((resolve, reject) => {
+  const done = new Promise<void>((resolve, reject) => {
     pending.set(id, (msg) => {
+      if (msg.type === "progress") {
+        onProgress?.({ fraction: msg.fraction < 0 ? null : msg.fraction, status: msg.status });
+        return;
+      }
       pending.delete(id);
       if (msg.type === "remove_result") resolve();
       else if (msg.type === "error") reject(new Error(msg.message));
@@ -176,6 +199,7 @@ export async function backendRemove(sourceType: string, packageName: string): Pr
     });
     send({ type: "remove", id, source_type: sourceType, package_name: packageName });
   });
+  return { id, done };
 }
 
 // backendGetApp fetches full detail for a single app by canonical id.

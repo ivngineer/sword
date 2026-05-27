@@ -118,6 +118,18 @@ type actionOut struct {
 	OK   bool   `json:"ok"`
 }
 
+// progressOut is emitted repeatedly while an install/remove runs. Fraction is
+// in [0,1] when the underlying tool reports a percentage; -1 means
+// indeterminate (status text still useful). Status is the most recent line
+// from the tool's output, e.g. "Receiving objects: 35%" or
+// "(2/5) downloading firefox-130.0-1-x86_64".
+type progressOut struct {
+	Type     string  `json:"type"`
+	ID       string  `json:"id"`
+	Fraction float64 `json:"fraction"`
+	Status   string  `json:"status"`
+}
+
 // --- server ----------------------------------------------------------------
 
 type server struct {
@@ -233,11 +245,14 @@ func (s *server) handleAction(msg inbound, install bool) {
 		return
 	}
 	ctx := context.Background()
+	onProgress := func(fraction float64, status string) {
+		s.send(progressOut{Type: "progress", ID: msg.ID, Fraction: fraction, Status: status})
+	}
 	var err error
 	if install {
-		err = src.Install(ctx, msg.PackageName)
+		err = src.Install(ctx, msg.PackageName, onProgress)
 	} else {
-		err = src.Remove(ctx, msg.PackageName)
+		err = src.Remove(ctx, msg.PackageName, onProgress)
 	}
 	if err != nil {
 		s.send(errorOut{Type: "error", ID: msg.ID, Message: err.Error()})

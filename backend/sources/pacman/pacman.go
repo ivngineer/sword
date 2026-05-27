@@ -12,8 +12,11 @@ import (
 	"strings"
 
 	"sword/backend/models"
+	"sword/backend/sources"
 	"sword/backend/sources/proc"
 )
+
+var _ sources.Source = (*Source)(nil)
 
 const sourceName = "pacman"
 
@@ -70,13 +73,22 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 
 // Install installs a package via pkexec + pacman. Runs detached so pkexec
 // routes auth through the session polkit agent instead of /dev/tty.
-func (s *Source) Install(ctx context.Context, id string) error {
-	return proc.RunDetached(ctx, "pkexec", "pacman", "-S", "--noconfirm", id)
+func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {
+	return proc.RunStreaming(ctx, lineFn(onProgress),
+		"pkexec", "pacman", "-S", "--noconfirm", id)
 }
 
 // Remove uninstalls a package via pkexec + pacman.
-func (s *Source) Remove(ctx context.Context, id string) error {
-	return proc.RunDetached(ctx, "pkexec", "pacman", "-Rs", "--noconfirm", id)
+func (s *Source) Remove(ctx context.Context, id string, onProgress sources.ProgressFn) error {
+	return proc.RunStreaming(ctx, lineFn(onProgress),
+		"pkexec", "pacman", "-Rs", "--noconfirm", id)
+}
+
+func lineFn(onProgress sources.ProgressFn) func(string) {
+	return func(line string) {
+		frac, status := proc.ParseProgress(line)
+		onProgress(frac, status)
+	}
 }
 
 func parse(b []byte) []models.SourcePackage {

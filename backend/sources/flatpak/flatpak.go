@@ -7,20 +7,54 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"sword/backend/models"
+	"sword/backend/sources"
 	"sword/backend/sources/proc"
 )
 
+var _ sources.Source = (*Source)(nil)
+
 const sourceName = "flatpak"
+const flathubRepoURL = "https://dl.flathub.org/repo/flathub.flatpakrepo"
 
 // Source implements sources.Source for flatpak.
-type Source struct{}
+type Source struct {
+	remoteOnce sync.Once
+}
 
-// New returns a flatpak Source.
-func New() *Source { return &Source{} }
+// New returns a flatpak Source and kicks off a one-shot bootstrap that adds
+// the flathub remote at user scope if it isn't already configured. Without a
+// user-scoped flathub remote, `flatpak install --user flathub <id>` fails
+// with "No remote refs found for 'flathub'" even when flathub exists at
+// system scope.
+func New() *Source {
+	s := &Source{}
+	go s.ensureFlathubRemote(context.Background())
+	return s
+}
+
+// ensureFlathubRemote runs `flatpak remote-add --user --if-not-exists` once
+// per process. The flag makes the call an idempotent no-op when the remote is
+// already present (no network round-trip).
+func (s *Source) ensureFlathubRemote(ctx context.Context) {
+	s.remoteOnce.Do(func() {
+		if !s.Available() {
+			return
+		}
+		cmd := exec.CommandContext(ctx, "flatpak", "remote-add",
+			"--user", "--if-not-exists", "flathub", flathubRepoURL)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err != nil {
+			log.Printf("flatpak: remote-add flathub: %v: %s", err, strings.TrimSpace(stderr.String()))
+		}
+	})
+}
 
 // Name returns "flatpak".
 func (s *Source) Name() string { return sourceName }
@@ -73,16 +107,34 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 	return models.SourcePackage{}, errors.New("flatpak: package not found: " + id)
 }
 
-// Install installs a flatpak app from flathub. System-level installs trigger a
-// polkit prompt; --user installs do not. We prefer --user so the action
-// completes without auth where possible.
-func (s *Source) Install(ctx context.Context, id string) error {
-	return proc.RunDetached(ctx, "flatpak", "install", "-y", "--user", "flathub", id)
+// Install installs a flatpak app from flathub at user scope. System-level
+// installs trigger a polkit prompt; --user installs do not. --or-update makes
+// re-install of an already-present app a no-op upgrade instead of an error.
+// --noninteractive forces deterministic exit codes off a tty.
+func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {
+	s.ensureFlathubRemote(ctx)
+	return proc.RunStreaming(ctx, progressLine(onProgress), "flatpak", "install",
+		"-y", "--noninteractive", "--user", "--or-update", "flathub", id)
 }
 
-// Remove uninstalls a flatpak app from the user installation.
-func (s *Source) Remove(ctx context.Context, id string) error {
-	return proc.RunDetached(ctx, "flatpak", "uninstall", "-y", "--user", id)
+// Remove uninstalls a flatpak app. Tries user scope first (no auth prompt);
+// if the app isn't installed at user scope, falls back to system scope which
+// routes a polkit prompt through the session auth agent.
+func (s *Source) Remove(ctx context.Context, id string, onProgress sources.ProgressFn) error {
+	onLine := progressLine(onProgress)
+	if err := proc.RunStreaming(ctx, onLine, "flatpak", "uninstall",
+		"-y", "--noninteractive", "--user", id); err == nil {
+		return nil
+	}
+	return proc.RunStreaming(ctx, onLine, "flatpak", "uninstall",
+		"-y", "--noninteractive", "--system", id)
+}
+
+func progressLine(onProgress sources.ProgressFn) func(string) {
+	return func(line string) {
+		frac, status := proc.ParseProgress(line)
+		onProgress(frac, status)
+	}
 }
 
 func parse(b []byte) []models.SourcePackage {
