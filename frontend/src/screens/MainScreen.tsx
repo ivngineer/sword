@@ -29,12 +29,20 @@ export function MainScreen() {
         className={`flex flex-1 flex-col overflow-y-auto ${showApp || activePanel === "search" ? "" : "p-6"}`}
         style={{ backgroundColor: "var(--background)" }}
       >
-        {showApp ? (
+        {activePanel === "search" ? (
+          <>
+            <div
+              className="flex flex-1 flex-col overflow-hidden"
+              style={{ display: showApp ? "none" : "flex" }}
+            >
+              <SearchScreen />
+            </div>
+            {showApp && <AppScreen />}
+          </>
+        ) : showApp ? (
           <AppScreen />
         ) : activePanel === "home" ? (
           <HomePanel />
-        ) : activePanel === "search" ? (
-          <SearchScreen />
         ) : activePanel === "about" ? (
           <AboutScreen />
         ) : activePanel === "settings" ? (
