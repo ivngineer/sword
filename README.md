@@ -16,21 +16,23 @@ Currently the app is WIP (work in progress) and comes with no promises.
 Here's what works:
 
 - Homescreen with most popular apps
-- App cards showing name, description, icon, and active source
+- App cards showing name, description, icon and active source
 - Search engine across Pacman, Flatpak and AUR with deduplication (1 app = 1 entry)
 - Multi-source unification: one entry per app, best source pre-selected, manual override available
-- Dark and light theme with live switching
+- Minimal settings menu
 - Install and remove packages (may be unstable)
-- App detail view with size, sources, and screenshots
+- App details view with size, sources, and screenshots
+- Secure authentication via a discrete polkit agent for operations requiring sudo
 
 ## Known issues:
 
 - Flatpak installs sometimes don't work
 - Some icons in menus fail to render - expected to be fixed soon
+- App status (e.g. Installed, Avalible) doesn't refresh untile restart occasionally.
 
 ## Dependencies
 
-Runtime tools Sword shells out to. Missing ones degrade gracefully (that source is skipped, no crash).
+Runtime tools Sword shells out to:
 
 
 
@@ -58,6 +60,9 @@ sudo pacman -S expac flatpak polkit
 - Installed apps list: separate view for what's currently on the system
 - Update queue: pending updates across all sources in one place (including system packages!)
 - Custom polkit agent: native, theme-matching auth dialog built into Sword
+- Getting Flatpak operations to work consistently
+- Improving search engine
+- Plugin support for one-click repo add
 - Smoothness optimizations: it runs well on my machine, but I don't think it would on a 2010 laptop
 
 Built on Tauri with Go on-device backend.
