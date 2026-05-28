@@ -27,7 +27,6 @@ Here's what works:
 ## Known issues:
 
 - Flatpak installs sometimes don't work
-- Some icons in menus fail to render - expected to be fixed soon
 - App status (e.g. Installed, Avalible) doesn't refresh untile restart occasionally.
 
 ## Dependencies
