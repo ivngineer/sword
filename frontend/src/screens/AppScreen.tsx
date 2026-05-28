@@ -145,13 +145,13 @@ function AppScreenContent({
         </div>
         <div className="flex flex-col gap-2 flex-1 min-w-0 pt-1">
           <h1
-            className="text-4xl font-semibold leading-tight"
+            className="text-4xl font-semibold leading-tight select-none"
             style={{ color: "var(--foreground)" }}
           >
             {entry.name}
           </h1>
           {entry.publisher && (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>
+            <p className="text-sm select-none" style={{ color: "var(--muted)" }}>
               {entry.publisher}
             </p>
           )}
@@ -168,7 +168,7 @@ function AppScreenContent({
             />
           </div>
           {mutate.isError && (
-            <p className="text-xs mt-2" style={{ color: "#ef4444" }}>
+            <p className="text-xs mt-2 select-none" style={{ color: "#ef4444" }}>
               {(mutate.error as Error).message}
             </p>
           )}
@@ -398,10 +398,10 @@ function Lightbox({
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+      <span className="text-xs uppercase tracking-wide select-none" style={{ color: "var(--muted)" }}>
         {label}
       </span>
-      <span className="text-sm" style={{ color: "var(--foreground)" }}>
+      <span className="text-sm select-none" style={{ color: "var(--foreground)" }}>
         {value}
       </span>
     </div>

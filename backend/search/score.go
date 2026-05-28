@@ -87,7 +87,13 @@ func Score(query string, entries []models.AppEntry) []models.IndexEntry {
 			bucket = 500 // metadata-only match
 		}
 		// Tiebreaker stays small relative to the bucket gap (×100).
-		tb := sourceWeight(e) + meta - len(e.Name)
+		// guiBoost floats apps with AppStream records (GUI/desktop apps) above
+		// CLI tools and libraries when name-match quality is equal.
+		guiBoost := 0
+		if e.AppStreamID != "" {
+			guiBoost = 200
+		}
+		tb := sourceWeight(e) + meta - len(e.Name) + guiBoost
 		out = append(out, models.IndexEntry{App: e, Score: bucket*100 + tb})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Score > out[j].Score })
