@@ -118,6 +118,7 @@ function ActiveProgress() {
   const verb = job.kind === "install" ? "Installing" : "Removing";
   const pct =
     job.fraction == null ? null : Math.max(0, Math.min(100, Math.round(job.fraction * 100)));
+  const isFlatpak = job.sourceType === "flatpak";
   return (
     <div
       className="mx-1 rounded-xl py-[10px] px-3 flex flex-col gap-2 select-none"
@@ -127,7 +128,7 @@ function ActiveProgress() {
         <span
           className="truncate"
           style={{ color: "var(--foreground)" }}
-          title={`${verb} ${job.appName}`}
+          title={isFlatpak ? `${verb} ${job.appName} · Flatpaks take longer to install` : `${verb} ${job.appName}`}
         >
           {verb} {job.appName}
         </span>

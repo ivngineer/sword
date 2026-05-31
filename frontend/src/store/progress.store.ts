@@ -8,6 +8,7 @@ export type ProgressJob = {
   id: string;
   kind: "install" | "remove";
   appName: string;
+  sourceType: string;
   fraction: number | null;
   status: string;
 };

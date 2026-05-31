@@ -57,7 +57,7 @@ async function runAction(
   const { id, done } = await fn(source.type, source.packageName, ({ fraction, status }) => {
     update(id, fraction, status);
   });
-  start({ id, kind, appName });
+  start({ id, kind, appName, sourceType: source.type });
   try {
     await done;
   } finally {
