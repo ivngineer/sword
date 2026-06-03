@@ -91,6 +91,43 @@ func (s *Source) LocalQuery(ctx context.Context, names []string) ([]models.Sourc
 	return parse(out), nil
 }
 
+// Deps returns the dependency list for each named sync package, keyed by
+// package name. Runs `expac -S '%n\t%E' names...` (%E = depends-on). Unknown
+// names are silently dropped; empty input returns an empty map.
+func (s *Source) Deps(ctx context.Context, names []string) (map[string][]string, error) {
+	if len(names) == 0 {
+		return map[string][]string{}, nil
+	}
+	if !s.Available() {
+		return nil, errors.New("pacman: expac not installed")
+	}
+	args := append([]string{"-S", `%n\t%E`}, names...)
+	cmd := exec.CommandContext(ctx, "expac", args...)
+	out, err := cmd.Output()
+	if err != nil && len(out) == 0 {
+		return map[string][]string{}, nil
+	}
+	deps := make(map[string][]string, len(names))
+	sc := bufio.NewScanner(bytes.NewReader(out))
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
+		f := strings.SplitN(line, "\t", 2)
+		if len(f) < 1 || f[0] == "" {
+			continue
+		}
+		var list []string
+		if len(f) == 2 {
+			list = strings.Fields(f[1])
+		}
+		deps[f[0]] = list
+	}
+	return deps, nil
+}
+
 // Install installs a package via pkexec + pacman. Runs detached so pkexec
 // routes auth through the session polkit agent instead of /dev/tty.
 func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {

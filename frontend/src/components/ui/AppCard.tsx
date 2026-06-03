@@ -5,11 +5,27 @@ import { SourceSwitcher } from "./SourceSwitcher";
 import { useAppSources } from "../../hooks/useAppSources";
 import { useUIStore } from "../../store/ui.store";
 
+// driverLabel maps the backend's DriverKind to a friendly, non-technical chip
+// label. Returns null for non-driver entries.
+function driverLabel(kind: AppEntry["driverKind"]): string | null {
+  switch (kind) {
+    case "kernel-module":
+      return "Kernel Module";
+    case "firmware":
+      return "Firmware";
+    case "driver":
+      return "Driver";
+    default:
+      return null;
+  }
+}
+
 export function AppCard({ entry }: { entry: AppEntry }) {
   const [imgError, setImgError] = useState(false);
   const { activeSource, allSources, setSource } = useAppSources(entry);
   const installed = entry.status === "installed";
   const viewApp = useUIStore((s) => s.viewApp);
+  const badge = driverLabel(entry.driverKind);
 
   return (
     <div
@@ -44,12 +60,22 @@ export function AppCard({ entry }: { entry: AppEntry }) {
         </div>
 
         <div className="flex flex-col min-w-0">
-          <h3
-            className="text-[22px] font-semibold leading-tight truncate select-none"
-            style={{ color: "var(--foreground)" }}
-          >
-            {entry.name}
-          </h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3
+              className="text-[22px] font-semibold leading-tight truncate select-none"
+              style={{ color: "var(--foreground)" }}
+            >
+              {entry.name}
+            </h3>
+            {badge && (
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium select-none"
+                style={{ backgroundColor: "var(--surface)", color: "var(--muted)" }}
+              >
+                {badge}
+              </span>
+            )}
+          </div>
           <p
             className="text-sm mt-1 line-clamp-2 select-none"
             style={{ color: "var(--muted)" }}

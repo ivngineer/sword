@@ -19,4 +19,5 @@ export type AppEntry = {
   status: AppStatus;
   sources: AppSource[];
   screenshots?: string[];
+  driverKind?: "kernel-module" | "firmware" | "driver";
 };

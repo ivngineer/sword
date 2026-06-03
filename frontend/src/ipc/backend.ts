@@ -8,6 +8,7 @@ type Outbound =
   | { type: "app_detail"; id: string; app: AppEntry }
   | { type: "popular_results"; id: string; results: AppEntry[] }
   | { type: "installed_results"; id: string; results: AppEntry[] }
+  | { type: "drivers_results"; id: string; phase: SearchPhase; results: AppEntry[] }
   | { type: "install_result"; id: string; ok: boolean }
   | { type: "remove_result"; id: string; ok: boolean }
   | { type: "progress"; id: string; fraction: number; status: string }
@@ -50,7 +51,12 @@ function dispatch(line: string) {
     console.error("[backend] non-JSON line:", trimmed);
     return;
   }
-  if (msg.type === "search_results" || msg.type === "popular_results" || msg.type === "installed_results") {
+  if (
+    msg.type === "search_results" ||
+    msg.type === "popular_results" ||
+    msg.type === "installed_results" ||
+    msg.type === "drivers_results"
+  ) {
     for (const r of msg.results) r.iconUrl = normalizeIcon(r.iconUrl);
   } else if (msg.type === "app_detail" && msg.app) {
     msg.app.iconUrl = normalizeIcon(msg.app.iconUrl);
@@ -164,6 +170,33 @@ export async function backendListInstalled(): Promise<AppEntry[]> {
       else reject(new Error("unexpected backend response"));
     });
     send({ type: "list_installed", id });
+  });
+}
+
+// backendListDrivers runs the two-phase driver scan. onPhase fires once for
+// the instant pacman set ("local") and once for the AUR-merged set
+// ("complete"). The promise resolves with the complete set.
+export async function backendListDrivers(
+  onPhase: (phase: SearchPhase, results: AppEntry[]) => void,
+): Promise<AppEntry[]> {
+  await ensureStarted();
+  const id = nextId("drivers");
+  return new Promise<AppEntry[]>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      if (msg.type === "error") {
+        pending.delete(id);
+        reject(new Error(msg.message));
+        return;
+      }
+      if (msg.type === "drivers_results") {
+        onPhase(msg.phase, msg.results);
+        if (msg.phase === "complete") {
+          pending.delete(id);
+          resolve(msg.results);
+        }
+      }
+    });
+    send({ type: "list_drivers", id });
   });
 }
 

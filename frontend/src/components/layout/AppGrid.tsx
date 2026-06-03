@@ -12,22 +12,30 @@ type AppGridProps = {
   queryKey?: readonly unknown[];
   fetchFn?: () => Promise<AppEntry[]>;
   emptyMessage?: ReactNode;
+  // When apps is provided, the grid renders these directly and skips its own
+  // query (used by screens that stream results themselves, e.g. Drivers).
+  apps?: AppEntry[];
+  loading?: boolean;
 };
 
 export function AppGrid({
   queryKey = ["popular"],
   fetchFn = fetchPopularApps,
   emptyMessage = "No popular apps available yet",
+  apps: appsProp,
+  loading: loadingProp,
 }: AppGridProps = {}) {
   const pollCount = useRef(0);
   const isPopular = queryKey[0] === "popular";
+  const controlled = appsProp !== undefined;
 
-  const { data: apps = [], isLoading, isFetching } = useQuery({
+  const { data: queryApps = [], isLoading: queryLoading, isFetching } = useQuery({
     queryKey,
     queryFn: async () => {
       pollCount.current += 1;
       return fetchFn();
     },
+    enabled: !controlled,
     staleTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchInterval: (query) => {
@@ -41,7 +49,9 @@ export function AppGrid({
     },
   });
 
-  const stillPolling = isPopular && (isFetching || pollCount.current < MAX_POPULAR_POLLS);
+  const apps = controlled ? appsProp : queryApps;
+  const isLoading = controlled ? !!loadingProp : queryLoading;
+  const stillPolling = !controlled && isPopular && (isFetching || pollCount.current < MAX_POPULAR_POLLS);
 
   // Incremental render: only mount the first N cards, grow as the user scrolls
   // near the bottom. Keeps long lists (Installed: ~100s) cheap to scroll on a

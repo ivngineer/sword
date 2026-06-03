@@ -4,8 +4,10 @@ import {
   backendGetApp,
   backendGetPopular,
   backendListInstalled,
+  backendListDrivers,
   backendInstall,
   backendRemove,
+  SearchPhase,
 } from "../ipc/backend";
 import { useProgressStore } from "../store/progress.store";
 
@@ -34,6 +36,14 @@ export async function fetchPopularApps(): Promise<AppEntry[]> {
 
 export async function fetchInstalledApps(): Promise<AppEntry[]> {
   return backendListInstalled();
+}
+
+// fetchDriversPhased streams driver results: onPhase fires for the instant
+// pacman set and again when AUR results are merged in.
+export async function fetchDriversPhased(
+  onPhase: (phase: SearchPhase, results: AppEntry[]) => void,
+): Promise<AppEntry[]> {
+  return backendListDrivers(onPhase);
 }
 
 export async function installApp(source: AppSource, appName: string): Promise<void> {

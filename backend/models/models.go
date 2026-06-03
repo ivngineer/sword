@@ -48,6 +48,9 @@ type AppEntry struct {
 	// AppStreamID is internal bookkeeping for dedup/icon resolution; the
 	// frontend ignores it.
 	AppStreamID string `json:"appStreamId,omitempty"`
+	// DriverKind classifies a driver entry for the Drivers screen:
+	// "kernel-module", "firmware" or "driver". Empty for non-driver entries.
+	DriverKind string `json:"driverKind,omitempty"`
 }
 
 // IndexEntry pairs an AppEntry with its relevance score for a query.

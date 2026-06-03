@@ -6,6 +6,7 @@ import { AboutScreen } from "./AboutScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { SearchScreen } from "./SearchScreen";
 import { InstalledScreen } from "./InstalledScreen";
+import { DriversScreen } from "./DriversScreen";
 import { AppScreen } from "./AppScreen";
 import { useUIStore } from "../store/ui.store";
 
@@ -46,6 +47,8 @@ export function MainScreen() {
           <HomePanel />
         ) : activePanel === "installed" ? (
           <InstalledScreen />
+        ) : activePanel === "drivers" ? (
+          <DriversScreen />
         ) : activePanel === "about" ? (
           <AboutScreen />
         ) : activePanel === "settings" ? (

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"sword/backend/drivers"
 	"sword/backend/metadata"
 	"sword/backend/models"
 	"sword/backend/registry"
@@ -68,12 +69,13 @@ func main() {
 	}()
 
 	orch := search.NewOrchestrator(index, au, resolvers)
+	det := drivers.NewDetector(pac, au, index.Installed)
 	srcMap := map[string]sources.Source{
 		pac.Name(): pac,
 		fp.Name():  fp,
 		au.Name():  au,
 	}
-	newServer(orch, index, srcMap, pac.LocalQuery).run()
+	newServer(orch, index, det, srcMap, pac.LocalQuery).run()
 }
 
 // --- IPC protocol types ----------------------------------------------------
@@ -112,6 +114,15 @@ type installedOut struct {
 	Results []models.AppEntry `json:"results"`
 }
 
+// driversOut carries Drivers-screen results. Two-phase like search: "local" is
+// the instant pacman scan; "complete" adds the AUR-merged set.
+type driversOut struct {
+	Type    string            `json:"type"`
+	ID      string            `json:"id"`
+	Phase   string            `json:"phase"`
+	Results []models.AppEntry `json:"results"`
+}
+
 type errorOut struct {
 	Type    string `json:"type"`
 	ID      string `json:"id"`
@@ -141,6 +152,7 @@ type progressOut struct {
 type server struct {
 	orch          *search.Orchestrator
 	index         *registry.AppIndex
+	det           *drivers.Detector
 	srcs          map[string]sources.Source
 	localPacQuery registry.LocalPkgQuery
 
@@ -151,8 +163,8 @@ type server struct {
 	cancel context.CancelFunc
 }
 
-func newServer(orch *search.Orchestrator, index *registry.AppIndex, srcs map[string]sources.Source, localPacQuery registry.LocalPkgQuery) *server {
-	return &server{orch: orch, index: index, srcs: srcs, localPacQuery: localPacQuery, enc: json.NewEncoder(os.Stdout)}
+func newServer(orch *search.Orchestrator, index *registry.AppIndex, det *drivers.Detector, srcs map[string]sources.Source, localPacQuery registry.LocalPkgQuery) *server {
+	return &server{orch: orch, index: index, det: det, srcs: srcs, localPacQuery: localPacQuery, enc: json.NewEncoder(os.Stdout)}
 }
 
 // send writes one JSON message followed by a newline. Encoder access is
@@ -187,6 +199,8 @@ func (s *server) run() {
 			go s.handleGetPopular(msg)
 		case "list_installed":
 			go s.handleListInstalled(msg)
+		case "list_drivers":
+			go s.handleListDrivers(msg)
 		case "install":
 			go s.handleAction(msg, true)
 		case "remove":
@@ -277,6 +291,28 @@ func (s *server) handleAction(msg inbound, install bool) {
 		typ = "remove_result"
 	}
 	s.send(actionOut{Type: typ, ID: msg.ID, OK: true})
+}
+
+// handleListDrivers runs the two-phase driver scan. The pacman scan is emitted
+// immediately; the AUR results are fetched and appended in a second message so
+// core drivers render instantly while AUR loads progressively.
+func (s *server) handleListDrivers(msg inbound) {
+	ctx := context.Background()
+	local := s.det.Local(ctx)
+	if local == nil {
+		local = []models.AppEntry{}
+	}
+	s.send(driversOut{Type: "drivers_results", ID: msg.ID, Phase: "local", Results: local})
+
+	exclude := make(map[string]bool, len(local))
+	for _, e := range local {
+		for _, src := range e.Sources {
+			exclude[src.PackageName] = true
+		}
+	}
+	complete := append([]models.AppEntry(nil), local...)
+	complete = append(complete, s.det.AUR(ctx, exclude)...)
+	s.send(driversOut{Type: "drivers_results", ID: msg.ID, Phase: "complete", Results: complete})
 }
 
 func (s *server) handleGetPopular(msg inbound) {

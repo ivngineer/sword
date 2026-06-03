@@ -11,6 +11,7 @@ import {
   PenTool,
   MessageSquare,
   Wrench,
+  Cpu,
   HardDrive,
   Settings,
   RefreshCw,
@@ -27,6 +28,7 @@ const TOP_ITEMS = [
   { id: "graphics", label: "Graphics", icon: PenTool },
   { id: "communication", label: "Communication", icon: MessageSquare },
   { id: "utilities", label: "Utilities", icon: Wrench },
+  { id: "drivers", label: "Drivers", icon: Cpu },
   { id: "installed", label: "Installed", icon: HardDrive },
 ];
 
