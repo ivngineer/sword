@@ -7,6 +7,7 @@ import { useUIStore } from "../store/ui.store";
 import { fetchApp, installApp, removeApp } from "../api/apps";
 import { useAppSources } from "../hooks/useAppSources";
 import { SourceSwitcher } from "../components/ui/SourceSwitcher";
+import { driverIcon } from "../components/ui/AppCard";
 import { formatBytes } from "../lib/format";
 import { AppEntry } from "../types/app";
 import { tokens } from "../theme/tokens";
@@ -56,6 +57,9 @@ export function AppScreen() {
         ...fresh,
         iconUrl: fresh.iconUrl || snapshot.iconUrl,
         screenshots: fresh.screenshots ?? snapshot.screenshots,
+        // get_app doesn't classify drivers; keep the snapshot's kind so the
+        // category glyph survives the fresh-entry swap.
+        driverKind: fresh.driverKind ?? snapshot.driverKind,
       }
     : snapshot;
 
@@ -233,6 +237,19 @@ function AppScreenContent({
 function AppIcon({ entry }: { entry: AppEntry }) {
   const [err, setErr] = useState(false);
   if (err || !entry.iconUrl) {
+    // Driver entries rarely ship a desktop icon — stand in the category glyph
+    // instead of the generic "Icon" placeholder.
+    const KindIcon = driverIcon(entry.driverKind);
+    if (KindIcon) {
+      return (
+        <div
+          className="w-full h-full rounded-2xl flex items-center justify-center"
+          style={{ backgroundColor: "var(--surface)" }}
+        >
+          <KindIcon size={64} style={{ color: "var(--muted)" }} />
+        </div>
+      );
+    }
     return (
       <span className="text-sm" style={{ color: "var(--muted)" }}>
         Icon
