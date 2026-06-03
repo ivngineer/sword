@@ -1,16 +1,13 @@
 <div align="center">
   <img src="https://github.com/user-attachments/assets/f26fa5dd-6fe7-479c-a59f-4e61d941bfb4" width="128" alt="Sword Logo" />
   <h1>sword</h1>
-  <p>A package manager for Linux.</p>
+  <p>So many tools to install different packages! We take care of that.</p>
   <p>Sword stands for <strong>System Wide Open Repository Director</strong>.</p>
 </div>
 <div align="center">
   <img width="49%" src="https://github.com/user-attachments/assets/891ff130-8571-47e0-ac73-58e0e7c226f5" alt="2026-05-23_12-33-11" />
   <img width="49%" src="https://github.com/user-attachments/assets/219856e5-75af-46f0-8e7f-2ce2e101fbb5" alt="2026-05-23_12-33-11" />
 </div>
-
-### So many tools to install different packages! We take care of that.
-### The goal is to make software management as easy and straightforward as in mobile operating systems. 
 
 ## Install
 
