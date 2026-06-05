@@ -32,7 +32,8 @@ Here's what works:
 - App details view with size, sources, and screenshots
 - Secure authentication via a discrete polkit agent for operations requiring sudo
 ## Known issues:
-- Flatpak installs sometimes don't work
+- AUR installs don't work.
+- I'm yet to figure out secure authentication for yay.
 - App status (e.g. Installed, Avalible) doesn't refresh untile restart occasionally.
 ## Dependencies
 Runtime tools Sword shells out to:
