@@ -22,15 +22,9 @@ yay -S sword-bin
 
 ## Status
 Currently the app is WIP (work in progress) and comes with no promises.
-Here's what works:
-- Homescreen with most popular apps
-- App cards showing name, description, icon and active source
-- Search engine across Pacman, Flatpak and AUR with deduplication (1 app = 1 entry)
-- Multi-source unification: one entry per app, best source pre-selected, manual override available
-- Minimal settings menu
-- Install and remove packages (may be unstable)
-- App details view with size, sources, and screenshots
-- Secure authentication via a discrete polkit agent for operations requiring sudo
+Latest update adressed:
+- Firmware dedicated tab (Drivers)
+- Grouping app categories (WIP) into a dropdown
 ## Known issues:
 - AUR installs don't work.
 - I'm yet to figure out secure authentication for yay.
