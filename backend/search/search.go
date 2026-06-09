@@ -107,14 +107,24 @@ func (o *Orchestrator) mergeAUR(apps []models.AppEntry, aurPkgs []models.SourceP
 			}
 		}
 		if idx >= 0 {
-			apps[idx].Sources = append(apps[idx].Sources, models.AppSource{
-				ID:          "aur:" + p.ID,
-				Type:        "aur",
-				PackageName: p.ID,
-				Version:     p.Version,
-				SizeBytes:   p.SizeBytes,
-			})
-			registry.SetRecommended(&apps[idx])
+			srcID := "aur:" + p.ID
+			dup := false
+			for _, s := range apps[idx].Sources {
+				if s.ID == srcID {
+					dup = true
+					break
+				}
+			}
+			if !dup {
+				apps[idx].Sources = append(apps[idx].Sources, models.AppSource{
+					ID:          srcID,
+					Type:        "aur",
+					PackageName: p.ID,
+					Version:     p.Version,
+					SizeBytes:   p.SizeBytes,
+				})
+				registry.SetRecommended(&apps[idx])
+			}
 			continue
 		}
 		if e := registry.Merge([]models.SourcePackage{p}, o.resolvers); e != nil {

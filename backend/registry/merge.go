@@ -64,6 +64,7 @@ func Merge(pkgs []models.SourcePackage, resolvers []metadata.AppStreamResolver) 
 	e := &models.AppEntry{}
 	bestAuth := -1
 	var appStreamID, pkgName string
+	seen := map[string]struct{}{}
 	for _, p := range pkgs {
 		if appStreamID == "" && p.AppStreamID != "" {
 			appStreamID = p.AppStreamID
@@ -71,13 +72,19 @@ func Merge(pkgs []models.SourcePackage, resolvers []metadata.AppStreamResolver) 
 		if pkgName == "" && p.SourceName == "pacman" {
 			pkgName = p.ID
 		}
-		e.Sources = append(e.Sources, models.AppSource{
-			ID:          p.SourceName + ":" + p.ID,
-			Type:        p.SourceName,
-			PackageName: p.ID,
-			Version:     p.Version,
-			SizeBytes:   p.SizeBytes,
-		})
+		// Duplicate source ids break the frontend (react-aria collections
+		// require unique keys), so the same package never lands twice.
+		srcID := p.SourceName + ":" + p.ID
+		if _, dup := seen[srcID]; !dup {
+			seen[srcID] = struct{}{}
+			e.Sources = append(e.Sources, models.AppSource{
+				ID:          srcID,
+				Type:        p.SourceName,
+				PackageName: p.ID,
+				Version:     p.Version,
+				SizeBytes:   p.SizeBytes,
+			})
+		}
 		if a := authority(p.SourceName); a > bestAuth {
 			bestAuth = a
 			e.Name = p.DisplayName

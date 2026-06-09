@@ -139,6 +139,9 @@ func progressLine(onProgress sources.ProgressFn) func(string) {
 
 func parse(b []byte) []models.SourcePackage {
 	var pkgs []models.SourcePackage
+	// remote-ls spans every installation; the same app shows up once per scope
+	// when a remote (e.g. flathub) exists at both system and user level.
+	seen := map[string]struct{}{}
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
 	for sc.Scan() {
@@ -151,6 +154,10 @@ func parse(b []byte) []models.SourcePackage {
 			continue
 		}
 		appID, name, version := f[0], f[1], f[2]
+		if _, dup := seen[appID]; dup {
+			continue
+		}
+		seen[appID] = struct{}{}
 		if name == "" {
 			name = appID
 		}

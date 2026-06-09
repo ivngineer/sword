@@ -10,15 +10,22 @@ export function useAppSources(entry: AppEntry): {
   const overrides = useUIStore((s) => s.sourceOverrides);
   const setSourceOverride = useUIStore((s) => s.setSourceOverride);
 
+  // Duplicate source ids freeze react-aria collections (infinite render
+  // loop in the Select popover), so guard against a misbehaving backend.
+  const seen = new Set<string>();
+  const sources = entry.sources.filter((s) =>
+    seen.has(s.id) ? false : (seen.add(s.id), true),
+  );
+
   const overrideId = overrides[entry.id];
   const activeSource =
-    entry.sources.find((s) => s.id === overrideId) ??
-    entry.sources.find((s) => s.isRecommended) ??
-    rankSources(entry.sources);
+    sources.find((s) => s.id === overrideId) ??
+    sources.find((s) => s.isRecommended) ??
+    rankSources(sources);
 
   return {
     activeSource,
-    allSources: entry.sources,
+    allSources: sources,
     setSource: (sourceId) => setSourceOverride(entry.id, sourceId),
   };
 }
