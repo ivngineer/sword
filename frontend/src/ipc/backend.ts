@@ -1,6 +1,6 @@
 import { Command, Child } from "@tauri-apps/plugin-shell";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { AppEntry } from "../types/app";
+import { AppEntry, FirmwarePackage } from "../types/app";
 
 // Outbound messages emitted by the Go sidecar (see backend/main.go).
 type Outbound =
@@ -9,6 +9,7 @@ type Outbound =
   | { type: "popular_results"; id: string; results: AppEntry[] }
   | { type: "installed_results"; id: string; results: AppEntry[] }
   | { type: "drivers_results"; id: string; phase: SearchPhase; results: AppEntry[] }
+  | { type: "firmware_results"; id: string; packages: FirmwarePackage[] }
   | { type: "install_result"; id: string; ok: boolean }
   | { type: "remove_result"; id: string; ok: boolean }
   | { type: "progress"; id: string; fraction: number; status: string }
@@ -198,6 +199,48 @@ export async function backendListDrivers(
     });
     send({ type: "list_drivers", id });
   });
+}
+
+// backendScanFirmware asks the backend for firmware packages recommended for
+// the current hardware that are not installed yet. Empty array = nothing
+// missing (caller hides its UI).
+export async function backendScanFirmware(): Promise<FirmwarePackage[]> {
+  await ensureStarted();
+  const id = nextId("firmware");
+  return new Promise<FirmwarePackage[]>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      pending.delete(id);
+      if (msg.type === "firmware_results") resolve(msg.packages);
+      else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "scan_firmware", id });
+  });
+}
+
+// backendInstallBatch installs several packages in one transaction via the
+// named source (pacman only). Same progress/result protocol as backendInstall.
+export async function backendInstallBatch(
+  sourceType: string,
+  packageNames: string[],
+  onProgress?: OnProgress,
+): Promise<{ id: string; done: Promise<void> }> {
+  await ensureStarted();
+  const id = nextId("install-batch");
+  const done = new Promise<void>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      if (msg.type === "progress") {
+        onProgress?.({ fraction: msg.fraction < 0 ? null : msg.fraction, status: msg.status });
+        return;
+      }
+      pending.delete(id);
+      if (msg.type === "install_result") resolve();
+      else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "install_batch", id, source_type: sourceType, package_names: packageNames });
+  });
+  return { id, done };
 }
 
 // backendInstall runs install for one package via the named source. onProgress

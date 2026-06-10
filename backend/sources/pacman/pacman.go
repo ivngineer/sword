@@ -91,6 +91,24 @@ func (s *Source) LocalQuery(ctx context.Context, names []string) ([]models.Sourc
 	return parse(out), nil
 }
 
+// SyncInfo returns sync-repo metadata for the named packages. Unknown names
+// are silently dropped; empty input returns nil.
+func (s *Source) SyncInfo(ctx context.Context, names []string) ([]models.SourcePackage, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	if !s.Available() {
+		return nil, errors.New("pacman: expac not installed")
+	}
+	args := append([]string{"-S", `%n\t%v\t%d\t%m`}, names...)
+	cmd := exec.CommandContext(ctx, "expac", args...)
+	out, err := cmd.Output()
+	if err != nil && len(out) == 0 {
+		return nil, nil
+	}
+	return parse(out), nil
+}
+
 // Deps returns the dependency list for each named sync package, keyed by
 // package name. Runs `expac -S '%n\t%E' names...` (%E = depends-on). Unknown
 // names are silently dropped; empty input returns an empty map.
@@ -133,6 +151,14 @@ func (s *Source) Deps(ctx context.Context, names []string) (map[string][]string,
 func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {
 	return proc.RunStreaming(ctx, lineFn(onProgress),
 		"pkexec", "pacman", "-S", "--noconfirm", id)
+}
+
+// InstallMany installs several packages in one pacman transaction: a single
+// pkexec auth prompt and shared dependency resolution. --needed skips any
+// package that is already up to date.
+func (s *Source) InstallMany(ctx context.Context, ids []string, onProgress sources.ProgressFn) error {
+	args := append([]string{"pacman", "-S", "--noconfirm", "--needed"}, ids...)
+	return proc.RunStreaming(ctx, lineFn(onProgress), "pkexec", args...)
 }
 
 // Remove uninstalls a package via pkexec + pacman.

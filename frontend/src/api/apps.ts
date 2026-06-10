@@ -1,11 +1,13 @@
-import { AppEntry, AppSource } from "../types/app";
+import { AppEntry, AppSource, FirmwarePackage } from "../types/app";
 import {
   backendSearch,
   backendGetApp,
   backendGetPopular,
   backendListInstalled,
   backendListDrivers,
+  backendScanFirmware,
   backendInstall,
+  backendInstallBatch,
   backendRemove,
   SearchPhase,
 } from "../ipc/backend";
@@ -44,6 +46,29 @@ export async function fetchDriversPhased(
   onPhase: (phase: SearchPhase, results: AppEntry[]) => void,
 ): Promise<AppEntry[]> {
   return backendListDrivers(onPhase);
+}
+
+// scanFirmware returns firmware packages recommended for this machine's
+// hardware that are not installed. Empty = hide the firmware panel.
+export async function scanFirmware(): Promise<FirmwarePackage[]> {
+  return backendScanFirmware();
+}
+
+// installFirmwarePackages batch-installs the pending firmware list in a
+// single pacman transaction, wired into the global progress store like any
+// other install.
+export async function installFirmwarePackages(names: string[]): Promise<void> {
+  if (names.length === 0) return;
+  const { start, update, finish } = useProgressStore.getState();
+  const { id, done } = await backendInstallBatch("pacman", names, ({ fraction, status }) => {
+    update(id, fraction, status);
+  });
+  start({ id, kind: "install", appName: "Firmware updates", sourceType: "pacman" });
+  try {
+    await done;
+  } finally {
+    finish(id);
+  }
 }
 
 export async function installApp(source: AppSource, appName: string): Promise<void> {

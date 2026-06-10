@@ -81,12 +81,13 @@ func main() {
 // --- IPC protocol types ----------------------------------------------------
 
 type inbound struct {
-	Type        string `json:"type"`
-	ID          string `json:"id"`
-	Query       string `json:"query"`
-	AppID       string `json:"app_id"`
-	SourceType  string `json:"source_type"`
-	PackageName string `json:"package_name"`
+	Type         string   `json:"type"`
+	ID           string   `json:"id"`
+	Query        string   `json:"query"`
+	AppID        string   `json:"app_id"`
+	SourceType   string   `json:"source_type"`
+	PackageName  string   `json:"package_name"`
+	PackageNames []string `json:"package_names"`
 }
 
 type searchOut struct {
@@ -121,6 +122,15 @@ type driversOut struct {
 	ID      string            `json:"id"`
 	Phase   string            `json:"phase"`
 	Results []models.AppEntry `json:"results"`
+}
+
+// firmwareOut carries the firmware-scan result: missing firmware packages
+// recommended for the current hardware. Empty Packages means "nothing to do"
+// (the frontend hides its panel).
+type firmwareOut struct {
+	Type     string                    `json:"type"`
+	ID       string                    `json:"id"`
+	Packages []drivers.FirmwarePackage `json:"packages"`
 }
 
 type errorOut struct {
@@ -201,6 +211,10 @@ func (s *server) run() {
 			go s.handleListInstalled(msg)
 		case "list_drivers":
 			go s.handleListDrivers(msg)
+		case "scan_firmware":
+			go s.handleScanFirmware(msg)
+		case "install_batch":
+			go s.handleInstallBatch(msg)
 		case "install":
 			go s.handleAction(msg, true)
 		case "remove":
@@ -313,6 +327,41 @@ func (s *server) handleListDrivers(msg inbound) {
 	complete := append([]models.AppEntry(nil), local...)
 	complete = append(complete, s.det.AUR(ctx, exclude)...)
 	s.send(driversOut{Type: "drivers_results", ID: msg.ID, Phase: "complete", Results: complete})
+}
+
+// handleScanFirmware runs the hardware firmware scan and returns the missing
+// recommended packages (exact pacman names plus review-dialog metadata).
+func (s *server) handleScanFirmware(msg inbound) {
+	pkgs := s.det.Firmware(context.Background())
+	if pkgs == nil {
+		pkgs = []drivers.FirmwarePackage{}
+	}
+	s.send(firmwareOut{Type: "firmware_results", ID: msg.ID, Packages: pkgs})
+}
+
+// handleInstallBatch installs several packages in one transaction (used by
+// the firmware panel's Install All). Only pacman supports batching; the
+// progress/result protocol matches a single install.
+func (s *server) handleInstallBatch(msg inbound) {
+	if len(msg.PackageNames) == 0 {
+		s.send(errorOut{Type: "error", ID: msg.ID, Message: "missing package_names"})
+		return
+	}
+	pac, ok := s.srcs[msg.SourceType].(*pacman.Source)
+	if !ok {
+		s.send(errorOut{Type: "error", ID: msg.ID, Message: "batch install requires the pacman source"})
+		return
+	}
+	onProgress := func(fraction float64, status string) {
+		s.send(progressOut{Type: "progress", ID: msg.ID, Fraction: fraction, Status: status})
+	}
+	if err := pac.InstallMany(context.Background(), msg.PackageNames, onProgress); err != nil {
+		s.send(errorOut{Type: "error", ID: msg.ID, Message: err.Error()})
+		return
+	}
+	s.index.RefreshInstalled(context.Background())
+	go s.index.Build(context.Background())
+	s.send(actionOut{Type: "install_result", ID: msg.ID, OK: true})
 }
 
 func (s *server) handleGetPopular(msg inbound) {
