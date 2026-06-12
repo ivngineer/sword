@@ -6,7 +6,7 @@ import { create } from "zustand";
 // short label under the bar.
 export type ProgressJob = {
   id: string;
-  kind: "install" | "remove";
+  kind: "install" | "remove" | "update";
   appName: string;
   sourceType: string;
   fraction: number | null;

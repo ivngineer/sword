@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Topbar } from "../components/layout/Topbar";
 import { AppGrid } from "../components/layout/AppGrid";
 import { FirmwareBanner } from "../components/ui/FirmwareBanner";
 import { fetchDriversPhased, installFirmwarePackages, scanFirmware } from "../api/apps";
@@ -60,7 +59,6 @@ export function DriversScreen() {
 
   return (
     <>
-      <Topbar />
       {firmware.length > 0 && (
         <FirmwareBanner
           packages={firmware}

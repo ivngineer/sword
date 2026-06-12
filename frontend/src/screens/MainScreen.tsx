@@ -1,5 +1,4 @@
 import { Sidebar } from "../components/layout/Sidebar";
-import { Topbar } from "../components/layout/Topbar";
 import { AppGrid } from "../components/layout/AppGrid";
 import { PlaceholderPanel } from "./PlaceholderPanel";
 import { AboutScreen } from "./AboutScreen";
@@ -8,21 +7,24 @@ import { SearchScreen } from "./SearchScreen";
 import { InstalledScreen } from "./InstalledScreen";
 import { DriversScreen } from "./DriversScreen";
 import { AppScreen } from "./AppScreen";
+import { UpdatesScreen } from "./UpdatesScreen";
 import { useUIStore } from "../store/ui.store";
+import { useUpdatesStore } from "../store/updates.store";
+import { useEffect } from "react";
 
 function HomePanel() {
-  return (
-    <>
-      <Topbar />
-      <AppGrid />
-    </>
-  );
+  return <AppGrid />;
 }
 
 export function MainScreen() {
   const { activePanel } = useUIStore();
   const activeAppId = useUIStore((s) => s.activeAppId);
   const showApp = !!activeAppId;
+
+  // Refresh the pending-updates list once per launch.
+  useEffect(() => {
+    useUpdatesStore.getState().refresh();
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -49,6 +51,8 @@ export function MainScreen() {
           <InstalledScreen />
         ) : activePanel === "drivers" ? (
           <DriversScreen />
+        ) : activePanel === "updates" ? (
+          <UpdatesScreen />
         ) : activePanel === "about" ? (
           <AboutScreen />
         ) : activePanel === "settings" ? (

@@ -80,7 +80,7 @@ func (s *Source) Get(ctx context.Context, id string) (models.SourcePackage, erro
 // the helper's pacman invocation routes its sudo/polkit prompt through the
 // session auth agent rather than /dev/tty.
 func (s *Source) Install(ctx context.Context, id string, onProgress sources.ProgressFn) error {
-	helper, err := findHelper()
+	helper, err := FindHelper()
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (s *Source) Install(ctx context.Context, id string, onProgress sources.Prog
 
 // Remove uninstalls an AUR-installed package using paru or yay.
 func (s *Source) Remove(ctx context.Context, id string, onProgress sources.ProgressFn) error {
-	helper, err := findHelper()
+	helper, err := FindHelper()
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,8 @@ func lineFn(onProgress sources.ProgressFn) func(string) {
 	}
 }
 
-func findHelper() (string, error) {
+// FindHelper returns the path of an installed AUR helper (paru or yay).
+func FindHelper() (string, error) {
 	for _, h := range []string{"paru", "yay"} {
 		if p, err := exec.LookPath(h); err == nil {
 			return p, nil

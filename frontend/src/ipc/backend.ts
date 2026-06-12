@@ -1,6 +1,6 @@
 import { Command, Child } from "@tauri-apps/plugin-shell";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { AppEntry, FirmwarePackage } from "../types/app";
+import { AppEntry, FirmwarePackage, UpdateEntry, UpdateSkip } from "../types/app";
 
 // Outbound messages emitted by the Go sidecar (see backend/main.go).
 type Outbound =
@@ -10,6 +10,8 @@ type Outbound =
   | { type: "installed_results"; id: string; results: AppEntry[] }
   | { type: "drivers_results"; id: string; phase: SearchPhase; results: AppEntry[] }
   | { type: "firmware_results"; id: string; packages: FirmwarePackage[] }
+  | { type: "updates_results"; id: string; updates: UpdateEntry[] }
+  | { type: "update_result"; id: string; ok: boolean; message?: string }
   | { type: "install_result"; id: string; ok: boolean }
   | { type: "remove_result"; id: string; ok: boolean }
   | { type: "progress"; id: string; fraction: number; status: string }
@@ -61,6 +63,8 @@ function dispatch(line: string) {
     for (const r of msg.results) r.iconUrl = normalizeIcon(r.iconUrl);
   } else if (msg.type === "app_detail" && msg.app) {
     msg.app.iconUrl = normalizeIcon(msg.app.iconUrl);
+  } else if (msg.type === "updates_results") {
+    for (const u of msg.updates) u.iconUrl = normalizeIcon(u.iconUrl);
   }
   const handler = pending.get(msg.id);
   if (handler) handler(msg);
@@ -172,6 +176,48 @@ export async function backendListInstalled(): Promise<AppEntry[]> {
     });
     send({ type: "list_installed", id });
   });
+}
+
+// backendListUpdates returns every pending update across all sources.
+export async function backendListUpdates(): Promise<UpdateEntry[]> {
+  await ensureStarted();
+  const id = nextId("updates");
+  return new Promise<UpdateEntry[]>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      pending.delete(id);
+      if (msg.type === "updates_results") resolve(msg.updates);
+      else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "list_updates", id });
+  });
+}
+
+// backendSystemUpdate runs the full system update, excluding the packages in
+// skip. Same {id, done} + progress-stream contract as backendInstall; rejects
+// with the backend's partial-failure summary when any manager fails.
+export async function backendSystemUpdate(
+  skip: UpdateSkip,
+  onProgress?: OnProgress,
+): Promise<{ id: string; done: Promise<void> }> {
+  await ensureStarted();
+  const id = nextId("sysup");
+  const done = new Promise<void>((resolve, reject) => {
+    pending.set(id, (msg) => {
+      if (msg.type === "progress") {
+        onProgress?.({ fraction: msg.fraction < 0 ? null : msg.fraction, status: msg.status });
+        return;
+      }
+      pending.delete(id);
+      if (msg.type === "update_result") {
+        if (msg.ok) resolve();
+        else reject(new Error(msg.message ?? "system update failed"));
+      } else if (msg.type === "error") reject(new Error(msg.message));
+      else reject(new Error("unexpected backend response"));
+    });
+    send({ type: "system_update", id, skip });
+  });
+  return { id, done };
 }
 
 // backendListDrivers runs the two-phase driver scan. onPhase fires once for

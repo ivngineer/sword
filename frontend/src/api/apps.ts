@@ -1,14 +1,16 @@
-import { AppEntry, AppSource, FirmwarePackage } from "../types/app";
+import { AppEntry, AppSource, FirmwarePackage, UpdateEntry, UpdateSkip } from "../types/app";
 import {
   backendSearch,
   backendGetApp,
   backendGetPopular,
   backendListInstalled,
   backendListDrivers,
+  backendListUpdates,
   backendScanFirmware,
   backendInstall,
   backendInstallBatch,
   backendRemove,
+  backendSystemUpdate,
   SearchPhase,
 } from "../ipc/backend";
 import { useProgressStore } from "../store/progress.store";
@@ -64,6 +66,27 @@ export async function installFirmwarePackages(names: string[]): Promise<void> {
     update(id, fraction, status);
   });
   start({ id, kind: "install", appName: "Firmware updates", sourceType: "pacman" });
+  try {
+    await done;
+  } finally {
+    finish(id);
+  }
+}
+
+// fetchUpdates returns every pending update across all sources.
+export async function fetchUpdates(): Promise<UpdateEntry[]> {
+  return backendListUpdates();
+}
+
+// runSystemUpdate performs the full system update (minus skipped packages),
+// wired into the global progress store like installs are. Throws with the
+// backend's summary when any package manager fails.
+export async function runSystemUpdate(skip: UpdateSkip): Promise<void> {
+  const { start, update, finish } = useProgressStore.getState();
+  const { id, done } = await backendSystemUpdate(skip, ({ fraction, status }) => {
+    update(id, fraction, status);
+  });
+  start({ id, kind: "update", appName: "System update", sourceType: "pacman" });
   try {
     await done;
   } finally {

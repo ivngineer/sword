@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"sword/backend/drivers"
+	"sword/backend/installed"
 	"sword/backend/metadata"
 	"sword/backend/models"
 	"sword/backend/registry"
@@ -22,6 +23,7 @@ import (
 	"sword/backend/sources/flatpak"
 	"sword/backend/sources/pacman"
 	"sword/backend/sources/proc"
+	"sword/backend/updates"
 )
 
 func main() {
@@ -75,7 +77,7 @@ func main() {
 		fp.Name():  fp,
 		au.Name():  au,
 	}
-	newServer(orch, index, det, srcMap, pac.LocalQuery).run()
+	newServer(orch, index, det, srcMap, pac.LocalQuery, updates.NewChecker()).run()
 }
 
 // --- IPC protocol types ----------------------------------------------------
@@ -87,7 +89,8 @@ type inbound struct {
 	AppID        string   `json:"app_id"`
 	SourceType   string   `json:"source_type"`
 	PackageName  string   `json:"package_name"`
-	PackageNames []string `json:"package_names"`
+	PackageNames []string      `json:"package_names"`
+	Skip         *updates.Skip `json:"skip"`
 }
 
 type searchOut struct {
@@ -133,6 +136,23 @@ type firmwareOut struct {
 	Packages []drivers.FirmwarePackage `json:"packages"`
 }
 
+// updatesOut carries the pending-updates list for the Updates screen.
+type updatesOut struct {
+	Type    string          `json:"type"`
+	ID      string          `json:"id"`
+	Updates []updates.Entry `json:"updates"`
+}
+
+// updateResultOut closes a system_update request. OK=false with Message means
+// the update ran but one or more managers failed — distinct from a protocol
+// error so the frontend can show partial-failure detail.
+type updateResultOut struct {
+	Type    string `json:"type"`
+	ID      string `json:"id"`
+	OK      bool   `json:"ok"`
+	Message string `json:"message,omitempty"`
+}
+
 type errorOut struct {
 	Type    string `json:"type"`
 	ID      string `json:"id"`
@@ -165,6 +185,7 @@ type server struct {
 	det           *drivers.Detector
 	srcs          map[string]sources.Source
 	localPacQuery registry.LocalPkgQuery
+	chk           *updates.Checker
 
 	encMu sync.Mutex
 	enc   *json.Encoder
@@ -173,8 +194,8 @@ type server struct {
 	cancel context.CancelFunc
 }
 
-func newServer(orch *search.Orchestrator, index *registry.AppIndex, det *drivers.Detector, srcs map[string]sources.Source, localPacQuery registry.LocalPkgQuery) *server {
-	return &server{orch: orch, index: index, det: det, srcs: srcs, localPacQuery: localPacQuery, enc: json.NewEncoder(os.Stdout)}
+func newServer(orch *search.Orchestrator, index *registry.AppIndex, det *drivers.Detector, srcs map[string]sources.Source, localPacQuery registry.LocalPkgQuery, chk *updates.Checker) *server {
+	return &server{orch: orch, index: index, det: det, srcs: srcs, localPacQuery: localPacQuery, chk: chk, enc: json.NewEncoder(os.Stdout)}
 }
 
 // send writes one JSON message followed by a newline. Encoder access is
@@ -213,6 +234,10 @@ func (s *server) run() {
 			go s.handleListDrivers(msg)
 		case "scan_firmware":
 			go s.handleScanFirmware(msg)
+		case "list_updates":
+			go s.handleListUpdates(msg)
+		case "system_update":
+			go s.handleSystemUpdate(msg)
 		case "install_batch":
 			go s.handleInstallBatch(msg)
 		case "install":
@@ -305,6 +330,58 @@ func (s *server) handleAction(msg inbound, install bool) {
 		typ = "remove_result"
 	}
 	s.send(actionOut{Type: typ, ID: msg.ID, OK: true})
+}
+
+// handleListUpdates checks all managers for pending updates and stamps icons
+// and display names: pacman/AUR packages get an icon only when they own a
+// user-facing .desktop entry; flatpak entries borrow icon and name from the
+// index when it has them.
+func (s *server) handleListUpdates(msg inbound) {
+	ctx := context.Background()
+	entries := s.chk.Check(ctx)
+
+	desktops := installed.ScanDesktops(ctx)
+	desktopIcons := installed.ResolveIcons(desktops)
+	for i := range entries {
+		e := &entries[i]
+		switch e.SourceType {
+		case "pacman", "aur":
+			if desktops.Owns(e.PackageName) {
+				e.IconURL = desktopIcons[e.PackageName]
+			}
+		case "flatpak":
+			if app, err := s.index.Get(e.PackageName); err == nil {
+				e.IconURL = app.IconURL
+				if app.Name != "" {
+					e.Name = app.Name
+				}
+			}
+		}
+	}
+	if entries == nil {
+		entries = []updates.Entry{}
+	}
+	s.send(updatesOut{Type: "updates_results", ID: msg.ID, Updates: entries})
+}
+
+// handleSystemUpdate runs the full system update, streaming aggregated
+// progress, then refreshes the installed snapshot like install/remove do.
+func (s *server) handleSystemUpdate(msg inbound) {
+	skip := updates.Skip{}
+	if msg.Skip != nil {
+		skip = *msg.Skip
+	}
+	onProgress := func(fraction float64, status string) {
+		s.send(progressOut{Type: "progress", ID: msg.ID, Fraction: fraction, Status: status})
+	}
+	err := s.chk.RunFullUpdate(context.Background(), skip, onProgress)
+	s.index.RefreshInstalled(context.Background())
+	go s.index.Build(context.Background())
+	if err != nil {
+		s.send(updateResultOut{Type: "update_result", ID: msg.ID, OK: false, Message: err.Error()})
+		return
+	}
+	s.send(updateResultOut{Type: "update_result", ID: msg.ID, OK: true})
 }
 
 // handleListDrivers runs the two-phase driver scan. The pacman scan is emitted

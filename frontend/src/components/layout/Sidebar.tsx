@@ -1,6 +1,7 @@
 import { ListBox, ProgressBar } from "@heroui/react";
 import { useUIStore } from "../../store/ui.store";
 import { useProgressStore, activeJob } from "../../store/progress.store";
+import { useUpdatesStore } from "../../store/updates.store";
 import {
   Search,
   Home,
@@ -29,11 +30,13 @@ function NavItem({
   label,
   Icon,
   isActive,
+  badge,
 }: {
   id: string;
   label: string;
   Icon: React.ElementType;
   isActive: boolean;
+  badge?: number;
 }) {
   return (
     <ListBox.Item
@@ -48,6 +51,14 @@ function NavItem({
       <div className="flex items-center gap-3">
         <Icon size={18} />
         <span>{label}</span>
+        {badge != null && badge > 0 && (
+          <span
+            className="ml-auto rounded-full px-2 py-px text-xs tabular-nums"
+            style={{ backgroundColor: "var(--accent)", color: "#ffffff" }}
+          >
+            {badge}
+          </span>
+        )}
       </div>
     </ListBox.Item>
   );
@@ -56,6 +67,7 @@ function NavItem({
 
 export function Sidebar() {
   const { activePanel, setActivePanel } = useUIStore();
+  const updateCount = useUpdatesStore((s) => s.entries.length);
 
   const handleSelect = (keys: Iterable<unknown>) => {
     const k = [...keys][0];
@@ -91,7 +103,14 @@ export function Sidebar() {
           className="flex flex-col gap-1 bg-transparent"
         >
           {BOTTOM_ITEMS.map(({ id, label, icon: Icon }) => (
-            <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
+            <NavItem
+              key={id}
+              id={id}
+              label={label}
+              Icon={Icon}
+              isActive={activePanel === id}
+              badge={id === "updates" ? updateCount : undefined}
+            />
           ))}
         </ListBox>
       </div>
@@ -106,7 +125,8 @@ export function Sidebar() {
 function ActiveProgress() {
   const job = useProgressStore((s) => activeJob(s.jobs));
   if (!job) return null;
-  const verb = job.kind === "install" ? "Installing" : "Removing";
+  const verb =
+    job.kind === "install" ? "Installing" : job.kind === "remove" ? "Removing" : "Updating";
   const pct =
     job.fraction == null ? null : Math.max(0, Math.min(100, Math.round(job.fraction * 100)));
   const isFlatpak = job.sourceType === "flatpak";
