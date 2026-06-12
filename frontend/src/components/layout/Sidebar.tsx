@@ -14,9 +14,6 @@ import {
 const TOP_ITEMS = [
   { id: "search", label: "Search", icon: Search },
   { id: "home", label: "Home", icon: Home },
-];
-
-const POST_ITEMS = [
   { id: "drivers", label: "Drivers", icon: Cpu },
   { id: "installed", label: "Installed", icon: HardDrive },
 ];
@@ -79,18 +76,6 @@ export function Sidebar() {
           className="flex flex-col gap-1 bg-transparent"
         >
           {TOP_ITEMS.map(({ id, label, icon: Icon }) => (
-            <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
-          ))}
-        </ListBox>
-
-        <ListBox
-          aria-label="More navigation"
-          selectionMode="single"
-          selectedKeys={new Set([activePanel])}
-          onSelectionChange={handleSelect}
-          className="flex flex-col gap-1 bg-transparent"
-        >
-          {POST_ITEMS.map(({ id, label, icon: Icon }) => (
             <NavItem key={id} id={id} label={label} Icon={Icon} isActive={activePanel === id} />
           ))}
         </ListBox>
