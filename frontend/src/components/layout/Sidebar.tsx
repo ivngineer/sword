@@ -48,7 +48,7 @@ function NavItem({
         color: "var(--foreground)",
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex w-full items-center gap-3">
         <Icon size={18} />
         <span>{label}</span>
         {badge != null && badge > 0 && (

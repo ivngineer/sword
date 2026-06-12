@@ -11,6 +11,7 @@ import {
   backendInstallBatch,
   backendRemove,
   backendSystemUpdate,
+  backendCancelUpdate,
   SearchPhase,
 } from "../ipc/backend";
 import { useProgressStore } from "../store/progress.store";
@@ -92,6 +93,10 @@ export async function runSystemUpdate(skip: UpdateSkip): Promise<void> {
   } finally {
     finish(id);
   }
+}
+
+export async function cancelSystemUpdate(): Promise<void> {
+  return backendCancelUpdate();
 }
 
 export async function installApp(source: AppSource, appName: string): Promise<void> {

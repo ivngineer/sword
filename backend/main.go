@@ -192,6 +192,9 @@ type server struct {
 
 	curMu  sync.Mutex
 	cancel context.CancelFunc
+
+	updateMu     sync.Mutex
+	updateCancel context.CancelFunc
 }
 
 func newServer(orch *search.Orchestrator, index *registry.AppIndex, det *drivers.Detector, srcs map[string]sources.Source, localPacQuery registry.LocalPkgQuery, chk *updates.Checker) *server {
@@ -238,6 +241,8 @@ func (s *server) run() {
 			go s.handleListUpdates(msg)
 		case "system_update":
 			go s.handleSystemUpdate(msg)
+		case "cancel_update":
+			go s.handleCancelUpdate()
 		case "install_batch":
 			go s.handleInstallBatch(msg)
 		case "install":
@@ -367,6 +372,17 @@ func (s *server) handleListUpdates(msg inbound) {
 // handleSystemUpdate runs the full system update, streaming aggregated
 // progress, then refreshes the installed snapshot like install/remove do.
 func (s *server) handleSystemUpdate(msg inbound) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.updateMu.Lock()
+	s.updateCancel = cancel
+	s.updateMu.Unlock()
+	defer func() {
+		cancel()
+		s.updateMu.Lock()
+		s.updateCancel = nil
+		s.updateMu.Unlock()
+	}()
+
 	skip := updates.Skip{}
 	if msg.Skip != nil {
 		skip = *msg.Skip
@@ -374,14 +390,27 @@ func (s *server) handleSystemUpdate(msg inbound) {
 	onProgress := func(fraction float64, status string) {
 		s.send(progressOut{Type: "progress", ID: msg.ID, Fraction: fraction, Status: status})
 	}
-	err := s.chk.RunFullUpdate(context.Background(), skip, onProgress)
+	err := s.chk.RunFullUpdate(ctx, skip, onProgress)
 	s.index.RefreshInstalled(context.Background())
 	go s.index.Build(context.Background())
 	if err != nil {
+		if ctx.Err() != nil {
+			s.send(updateResultOut{Type: "update_result", ID: msg.ID, OK: false, Message: "cancelled"})
+			return
+		}
 		s.send(updateResultOut{Type: "update_result", ID: msg.ID, OK: false, Message: err.Error()})
 		return
 	}
 	s.send(updateResultOut{Type: "update_result", ID: msg.ID, OK: true})
+}
+
+func (s *server) handleCancelUpdate() {
+	s.updateMu.Lock()
+	cancel := s.updateCancel
+	s.updateMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 // handleListDrivers runs the two-phase driver scan. The pacman scan is emitted

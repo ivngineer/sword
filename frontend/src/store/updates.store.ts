@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { UpdateEntry, UpdateSkip } from "../types/app";
-import { fetchUpdates, runSystemUpdate } from "../api/apps";
+import { fetchUpdates, runSystemUpdate, cancelSystemUpdate } from "../api/apps";
 
 // skipKey identifies an update entry across refreshes. Skips are
 // session-only by design: a relaunch re-checks updates with a clean slate.
@@ -16,6 +16,7 @@ type UpdatesState = {
   toggleSkip: (e: UpdateEntry) => void;
   refresh: () => Promise<void>;
   runFullUpdate: () => Promise<void>;
+  cancelUpdate: () => void;
 };
 
 export const useUpdatesStore = create<UpdatesState>((set, get) => ({
@@ -66,10 +67,17 @@ export const useUpdatesStore = create<UpdatesState>((set, get) => ({
     try {
       await runSystemUpdate(skip);
     } catch (err) {
-      set({ error: String(err instanceof Error ? err.message : err) });
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg !== "cancelled") {
+        set({ error: msg });
+      }
     } finally {
       set({ updating: false });
       await get().refresh();
     }
+  },
+
+  cancelUpdate: () => {
+    cancelSystemUpdate().catch(() => {});
   },
 }));

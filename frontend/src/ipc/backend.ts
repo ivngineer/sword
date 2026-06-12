@@ -220,6 +220,13 @@ export async function backendSystemUpdate(
   return { id, done };
 }
 
+// backendCancelUpdate sends a fire-and-forget cancel signal for the current
+// system update. No response is expected.
+export async function backendCancelUpdate(): Promise<void> {
+  await ensureStarted();
+  send({ type: "cancel_update", id: nextId("cancel") });
+}
+
 // backendListDrivers runs the two-phase driver scan. onPhase fires once for
 // the instant pacman set ("local") and once for the AUR-merged set
 // ("complete"). The promise resolves with the complete set.

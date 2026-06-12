@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@heroui/react";
-import { Minus, RefreshCw, Undo2 } from "lucide-react";
+import { Loader2, Minus, RefreshCw, Undo2 } from "lucide-react";
 import { UpdateEntry } from "../types/app";
 import { useUpdatesStore, skipKey } from "../store/updates.store";
 import { SourceBadge } from "../components/ui/SourceBadge";
 
 export function UpdatesScreen() {
-  const { entries, loaded, loading, updating, error, skipped, refresh, runFullUpdate } =
+  const { entries, loaded, loading, updating, error, skipped, refresh, runFullUpdate, cancelUpdate } =
     useUpdatesStore();
 
   // Launch prefetch usually covers this; the guard avoids a double fetch.
@@ -15,6 +15,7 @@ export function UpdatesScreen() {
   }, [loaded, loading, refresh]);
 
   const [scrolled, setScrolled] = useState(false);
+  const [updateBtnHovered, setUpdateBtnHovered] = useState(false);
 
   const skipCount = entries.filter((e) => skipped[skipKey(e)]).length;
   const allSkipped = entries.length > 0 && skipCount === entries.length;
@@ -79,17 +80,35 @@ export function UpdatesScreen() {
         {entries.length > 0 && (
           <Button
             variant="secondary"
-            className="w-full rounded-xl py-4"
-            onPress={runFullUpdate}
-            isDisabled={updating || allSkipped}
+            className="w-full rounded-xl py-4 transition-colors"
+            onPress={updating ? cancelUpdate : runFullUpdate}
+            isDisabled={!updating && allSkipped}
+            onMouseEnter={() => setUpdateBtnHovered(true)}
+            onMouseLeave={() => setUpdateBtnHovered(false)}
             style={{
-              backgroundColor: "#3b82f6",
+              backgroundColor:
+                updating && updateBtnHovered
+                  ? "rgba(239, 68, 68, 0.85)"
+                  : updating
+                    ? "#6b7280"
+                    : allSkipped
+                      ? "#6b7280"
+                      : "#3b82f6",
               color: "#ffffff",
-              opacity: updating || allSkipped ? 0.6 : 1,
+              opacity: !updating && allSkipped ? 0.6 : 1,
               minHeight: "3rem",
             }}
           >
-            {updating ? "Updating…" : "Full system update"}
+            <span className="flex items-center gap-2">
+              {updating && !(updating && updateBtnHovered) && (
+                <Loader2 size={16} className="animate-spin" />
+              )}
+              {updating
+                ? updateBtnHovered
+                  ? "Cancel"
+                  : "Updating system"
+                : "Full system update"}
+            </span>
           </Button>
         )}
       </div>
